@@ -4,3 +4,5 @@ __pycache__/
 .env
 *.log
 .DS_Store
+*.egg-info/
+build/

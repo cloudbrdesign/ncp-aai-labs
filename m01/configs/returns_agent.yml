@@ -1,0 +1,20 @@
+# M01: a separate "returns" agent. Serve it over A2A:
+#   nat a2a serve --config_file m01/configs/returns_agent.yml --port 11000 --name returns_agent
+llms:
+  chat_llm:
+    _type: openai
+    base_url: ${LLM_BASE_URL:-http://localhost:11434/v1}
+    model_name: ${LLM_MODEL:-llama3.2:3b}
+    api_key: ${LLM_API_KEY:-EMPTY}
+    temperature: 0.0
+
+functions:
+  returns_policy:
+    _type: returns_policy
+
+workflow:
+  _type: react_agent
+  tool_names: [returns_policy]
+  llm_name: chat_llm
+  description: "Answers questions about returns and refunds using the company's returns policy."
+  max_tool_calls: 3

@@ -1,0 +1,27 @@
+# M01: the support agent, now able to hand returns questions to the returns agent over A2A.
+# A2A clients are per-user, so the workflow must be per-user too (per_user_react_agent).
+llms:
+  chat_llm:
+    _type: openai
+    base_url: ${LLM_BASE_URL:-http://localhost:11434/v1}
+    model_name: ${LLM_MODEL:-llama3.2:3b}
+    api_key: ${LLM_API_KEY:-EMPTY}
+    temperature: 0.0
+
+functions:
+  lookup_order:
+    _type: lookup_order
+
+function_groups:
+  returns_agent:
+    _type: a2a_client
+    url: ${RETURNS_AGENT_URL:-http://localhost:11000}
+    task_timeout: 120
+    include: [call]      # expose only the high-level call() tool to the agent
+
+workflow:
+  _type: per_user_react_agent
+  tool_names: [lookup_order, returns_agent]
+  llm_name: chat_llm
+  verbose: true
+  max_tool_calls: 6

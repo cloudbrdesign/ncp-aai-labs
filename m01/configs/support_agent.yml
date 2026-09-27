@@ -1,0 +1,20 @@
+# M01: the support-desk agent as a NeMo Agent Toolkit ReAct agent.
+# Model: any OpenAI-compatible endpoint. Defaults to local Ollama; see m01/README.md for NVIDIA.
+llms:
+  chat_llm:
+    _type: openai
+    base_url: ${LLM_BASE_URL:-http://localhost:11434/v1}
+    model_name: ${LLM_MODEL:-llama3.2:3b}
+    api_key: ${LLM_API_KEY:-EMPTY}
+    temperature: 0.0
+
+functions:
+  lookup_order:
+    _type: lookup_order
+
+workflow:
+  _type: react_agent
+  tool_names: [lookup_order]
+  llm_name: chat_llm
+  verbose: true
+  max_tool_calls: 5

@@ -1,0 +1,5 @@
+{
+  "A1001": {"customer": "Priya N.", "item": "Wireless headset", "status": "shipped", "carrier": "DHL", "eta": "2 business days"},
+  "A1002": {"customer": "Tom B.", "item": "USB-C dock", "status": "delivered", "delivered": "3 days ago"},
+  "A1003": {"customer": "Lena K.", "item": "4K monitor", "status": "processing", "note": "awaiting stock"}
+}

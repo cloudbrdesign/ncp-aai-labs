@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ncp-aai-support-tools"
+version = "0.1.0"
+description = "Course lab tools (order lookup, returns policy) registered with NeMo Agent Toolkit"
+requires-python = ">=3.11"
+dependencies = ["nvidia-nat==1.9.0"]
+
+[project.entry-points.'nat.plugins']
+support_tools = "support_tools.register"
+
+[tool.setuptools.packages.find]
+where = ["src"]
