@@ -1,0 +1,81 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  NCP-AAI course: one GPU instance for a lab session. The instance shuts itself
+  down and terminates after MaxMinutes. Delete this stack when the lab ends
+  (python setup/aws_lab.py down).
+
+Parameters:
+  ImageId:
+    Type: AWS::EC2::Image::Id
+    Description: Deep Learning Base GPU AMI (resolved by aws_lab.py from its SSM parameter)
+  InstanceType:
+    Type: String
+    Default: g6e.xlarge
+  MaxMinutes:
+    Type: Number
+    Default: 55
+    MinValue: 10
+    MaxValue: 55
+    Description: Minutes after boot before the instance terminates itself
+
+Resources:
+  LabSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: NCP-AAI lab - no inbound access
+      Tags:
+        - {Key: Project, Value: ncp-aai-labs}
+
+  LabLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref ImageId
+        InstanceType: !Ref InstanceType
+        InstanceInitiatedShutdownBehavior: terminate
+        SecurityGroupIds:
+          - !GetAtt LabSecurityGroup.GroupId
+        MetadataOptions:
+          HttpTokens: required
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - {Key: Project, Value: ncp-aai-labs}
+              - {Key: Name, Value: ncp-aai-gpu-lab}
+          - ResourceType: volume
+            Tags:
+              - {Key: Project, Value: ncp-aai-labs}
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            # Hard time limit first, so it applies even if a later step fails.
+            # Installed as a cloud-init per-boot script, so a stopped-and-restarted
+            # instance gets a fresh limit too; run once now for this first boot.
+            mkdir -p /var/lib/cloud/scripts/per-boot
+            cat > /var/lib/cloud/scripts/per-boot/ncpaai-time-limit.sh <<'EOT'
+            #!/bin/bash
+            shutdown -h +${MaxMinutes} "NCP-AAI lab time limit reached"
+            EOT
+            chmod +x /var/lib/cloud/scripts/per-boot/ncpaai-time-limit.sh
+            /var/lib/cloud/scripts/per-boot/ncpaai-time-limit.sh
+            log() { echo "NCPAAI| $*" | tee /dev/console; }
+            log "START"
+            log "gpu=$(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader 2>&1)"
+            log "driver=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>&1)"
+            log "cuda=$(/usr/local/cuda/bin/nvcc --version 2>/dev/null | grep -o 'release [0-9.]*' | cut -d' ' -f2)"
+            log "cuda_driver_max=$(nvidia-smi 2>/dev/null | grep -o 'CUDA Version: [0-9.]*' | cut -d' ' -f3)"
+            log "docker=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo missing)"
+            log "container_toolkit=$(nvidia-ctk --version 2>/dev/null | head -1 | grep -o '[0-9][0-9.]*' | head -1 || echo missing)"
+            log "os=$(. /etc/os-release && echo $PRETTY_NAME)"
+            log "DONE"
+
+  LabInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LabLaunchTemplate
+        Version: !GetAtt LabLaunchTemplate.LatestVersionNumber
+
+Outputs:
+  InstanceId:
+    Value: !Ref LabInstance

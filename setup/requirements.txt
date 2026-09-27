@@ -1,0 +1,7 @@
+# Pinned for the NCP-AAI course labs (tested versions are recorded in setup/README.md)
+langchain-nvidia-ai-endpoints==1.4.3
+langchain-core==1.6.5
+boto3==1.43.103
+botocore==1.43.103
+langchain-ollama==1.1.0
+ollama==0.6.2
