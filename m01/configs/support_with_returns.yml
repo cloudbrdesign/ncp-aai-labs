@@ -24,4 +24,9 @@ workflow:
   tool_names: [lookup_order, returns_agent]
   llm_name: chat_llm
   verbose: true
-  max_tool_calls: 6
+  max_tool_calls: 4
+  # Small local models tend to repeat tool calls; these instructions keep the loop short.
+  additional_instructions: >-
+    Call each tool at most once per question. Use lookup_order for order status and
+    returns_agent__call for returns and refunds. As soon as you have the information
+    you need, write the Final Answer.
