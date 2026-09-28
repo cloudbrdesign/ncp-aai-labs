@@ -1,0 +1,3 @@
+Answer the customer in two sentences. Apologise, say a support ticket is being opened for
+order {order_id}, and ask for one photo of the damage.
+Customer message: {message}

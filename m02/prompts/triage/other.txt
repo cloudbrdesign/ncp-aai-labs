@@ -1,0 +1,3 @@
+Answer the customer in two sentences. Say a person from the support team will reply within
+one business day.
+Customer message: {message}

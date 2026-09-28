@@ -1,0 +1,45 @@
+# M02: the complete version-2 support desk: local tools with error handling, rules from a file.
+#   timeout          give up on a tool call that takes too long
+#   circuit_breaker  after repeated failures, stop calling the ticket API for a while
+# The LLM retries by itself too: num_retries attempts on HTTP 429/500/502/503/504.
+llms:
+  chat_llm:
+    _type: openai
+    base_url: ${LLM_BASE_URL:-http://localhost:11434/v1}
+    model_name: ${LLM_MODEL:-llama3.2:3b}
+    api_key: ${LLM_API_KEY:-EMPTY}
+    temperature: 0.0
+    num_retries: 3
+
+middleware:
+  ticket_timeout:
+    _type: timeout
+    timeout: 5.0
+  ticket_breaker:
+    _type: circuit_breaker
+    failure_threshold: 2
+    cooldown_period: 5.0
+    half_open_success_threshold: 1
+    circuit_breaker_message: "The ticket system is temporarily unavailable. Tell the customer we will follow up by email."
+
+functions:
+  lookup_order:
+    _type: lookup_order
+  create_ticket:
+    _type: create_ticket
+    api_url: ${TICKET_API_URL:-http://localhost:8765}
+    middleware: [ticket_timeout, ticket_breaker]
+  get_ticket:
+    _type: get_ticket
+    api_url: ${TICKET_API_URL:-http://localhost:8765}
+    middleware: [ticket_timeout, ticket_breaker]
+
+workflow:
+  _type: react_agent
+  tool_names: [lookup_order, create_ticket, get_ticket]
+  llm_name: chat_llm
+  verbose: true
+  max_tool_calls: 4
+  tool_call_max_retries: 1           # the agent retries a failed tool call once
+  pass_tool_call_errors_to_agent: true  # then the error goes to the model, which tells the customer
+  additional_instructions: file://../prompts/support_rules.md

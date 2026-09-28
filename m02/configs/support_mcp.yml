@@ -1,0 +1,24 @@
+# M02: the support agent, now getting its tools from the MCP server
+# (start it first: nat mcp serve --config_file m02/configs/ticket_tools.yml).
+llms:
+  chat_llm:
+    _type: openai
+    base_url: ${LLM_BASE_URL:-http://localhost:11434/v1}
+    model_name: ${LLM_MODEL:-llama3.2:3b}
+    api_key: ${LLM_API_KEY:-EMPTY}
+    temperature: 0.0
+
+function_groups:
+  desk:
+    _type: mcp_client
+    server:
+      transport: streamable-http
+      url: ${DESK_MCP_URL:-http://localhost:9901/mcp}
+
+workflow:
+  _type: react_agent
+  tool_names: [desk]
+  llm_name: chat_llm
+  verbose: true
+  max_tool_calls: 4
+  additional_instructions: file://../prompts/support_rules.md

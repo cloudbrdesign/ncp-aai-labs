@@ -1,0 +1,26 @@
+# M02: publish the support desk's tools over MCP.
+#   nat mcp serve --config_file m02/configs/ticket_tools.yml
+# serves every function below as an MCP tool at http://localhost:9901/mcp.
+# (The workflow section is required by the toolkit; MCP clients only see the tools.)
+llms:
+  chat_llm:
+    _type: openai
+    base_url: ${LLM_BASE_URL:-http://localhost:11434/v1}
+    model_name: ${LLM_MODEL:-llama3.2:3b}
+    api_key: ${LLM_API_KEY:-EMPTY}
+    temperature: 0.0
+
+functions:
+  lookup_order:
+    _type: lookup_order
+  create_ticket:
+    _type: create_ticket
+    api_url: ${TICKET_API_URL:-http://localhost:8765}
+  get_ticket:
+    _type: get_ticket
+    api_url: ${TICKET_API_URL:-http://localhost:8765}
+
+workflow:
+  _type: react_agent
+  tool_names: [lookup_order, create_ticket, get_ticket]
+  llm_name: chat_llm

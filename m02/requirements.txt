@@ -1,0 +1,6 @@
+# M02 adds MCP support to the toolkit, plus what the vision and streaming scripts use.
+-r ../m01/requirements.txt
+nvidia-nat[langchain,a2a,mcp]==1.9.0
+greenlet==3.5.6      # needed by `nat serve`
+openai==2.54.0       # photo_question.py talks to the vision model with the OpenAI client
+httpx==0.28.1        # ticket tools and stream_client.py

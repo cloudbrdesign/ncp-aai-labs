@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ncp-aai-desk-tools"
+version = "0.1.0"
+description = "Course lab tools (create and read support tickets) registered with NeMo Agent Toolkit"
+requires-python = ">=3.11"
+dependencies = ["nvidia-nat==1.9.0", "httpx"]
+
+[project.entry-points.'nat.plugins']
+desk_tools = "desk_tools.register"
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,4 @@
+Answer the customer in two sentences. Our policy: returns within 30 days of delivery for
+unused items; refunds reach the original payment method within 5 business days of the return
+arriving. Tell them whether order {order_id} can be returned under that policy, if you can tell.
+Customer message: {message}

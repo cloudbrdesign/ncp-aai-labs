@@ -1,0 +1,3 @@
+Answer the customer in two sentences. Confirm you are checking order {order_id} and that
+you will send its status and delivery estimate right away.
+Customer message: {message}

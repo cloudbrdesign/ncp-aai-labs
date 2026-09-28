@@ -9,7 +9,7 @@ Independent course. Not affiliated with or endorsed by NVIDIA.
 
 | Mode | Runs on | What you need |
 |---|---|---|
-| Free (API) | Your laptop | Python 3.10+, a free NVIDIA API key from build.nvidia.com |
+| Free | Your laptop | Python 3.10+, and either Ollama (free, local, no key) or an NVIDIA API key from build.nvidia.com |
 | AWS GPU | One `g6e.xlarge` in `us-east-1` | An AWS account, GPU quota, a budget alarm |
 
 Start with **[setup/](setup/README.md)** (Module 0). Each later module lives on its own
