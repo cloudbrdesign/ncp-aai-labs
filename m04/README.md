@@ -170,14 +170,17 @@ keyword    ../20       ../10    ../10     ...
 hybrid     ../20       ../10    ../10     ...
 [INFO] dense misses: ...
 [INFO] HNSW vs FLAT (exact): HNSW found ...% of FLAT's top-3 chunks (... vs ... ms/query)
+[INFO] Milvus Lite builds FLAT whatever index you ask for; compare indexes on Milvus Standalone
 [INFO] hybrid: right chunk in the top 20 for ../20, in the top 3 for ../20
 ```
 
 A question is a hit when a chunk from the right product and section is in the top 3.
-Expect keyword search to win on the exact codes (E42, MST, VESA), dense search on the
-everyday wording ("headphones", "hang the screen on the wall"), and hybrid to cover most of
-both. HNSW should find the same chunks as FLAT here: with 37 vectors there is nothing to
-approximate. Your numbers depend on the embedding model; `--verbose` shows each
+Keyword search needs the exact terms (E42, MST, VESA), dense search copes with everyday
+wording ("headphones", "hang the screen on the wall"), and hybrid mixes the two. On our
+run, all three modes found every exact code; on everyday wording keyword search missed two
+and hybrid one, so dense won 20/20 on this small set. HNSW finds the same chunks as FLAT
+here, and not only because 37 vectors leave nothing to approximate: the Milvus Lite docs
+say Lite supports only FLAT, whatever index you request. Your numbers depend on the embedding model; `--verbose` shows each
 question's top chunk per mode.
 
 ## 4. Reranking (not run)

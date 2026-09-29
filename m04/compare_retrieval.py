@@ -127,6 +127,7 @@ def run(ranker="rrf", weights=(0.5, 0.5), verbose=False, say=print) -> dict:
     hf = hnsw_vs_flat(client, questions, qvecs)
     say(f"\n[INFO] {hf['index']} vs FLAT (exact): {hf['index']} found {hf['recall']:.0%} of FLAT's top-3 chunks "
         f"({hf['ms']['index']:.1f} vs {hf['ms']['FLAT']:.1f} ms/query)")
+    say("[INFO] Milvus Lite builds FLAT whatever index you ask for; compare indexes on Milvus Standalone")
     rr = rerank_room(client, questions, qvecs, ranker, weights)
     gap = rr["top20"] - res["hybrid"]["hits"]
     say(f"[INFO] hybrid: right chunk in the top 20 for {rr['top20']}/{len(questions)}, in the top 3 for "
