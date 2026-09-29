@@ -81,7 +81,10 @@ def run_step(step: dict, request: str, log=print) -> dict:
     elif action == "manual_search":
         ev = manual_search(step, request, log)
     elif action == "open_ticket":
-        ev = handlers.open_ticket(step["order_id"], request)
+        try:
+            ev = handlers.open_ticket(step["order_id"], request)
+        except handlers.TicketApiError as e:   # the desk keeps going and says so plainly
+            ev = {"order_id": step["order_id"], "error": f"ticket system unavailable ({e})"}
     else:
         ev = handlers.answer(step.get("order_id", ""), request)
     return {"action": action, **ev}

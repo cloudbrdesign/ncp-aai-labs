@@ -86,6 +86,8 @@ def problems(plan: Plan, request: str, carried: list[str]) -> list[str]:
             found.append(f"product {s.product} is not the one in the request")
         elif not s.product and named_product(request):
             found.append(f"manual_search has no product, but the request names {named_product(request)}")
+    if "open_ticket" in actions and not DAMAGE.search(request):
+        found.append("open_ticket, but nothing is reported damaged, missing or wrong")
     if DAMAGE.search(request) and "open_ticket" not in actions:
         found.append("damaged item but no open_ticket step")
     if RETURN.search(request) and wanted and "return_check" not in actions:
