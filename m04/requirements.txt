@@ -1,0 +1,7 @@
+# M04 adds Milvus Lite (the vector database), LangChain's text splitters and the Ollama
+# client for embeddings to the M03 pins. Also run: ollama pull embeddinggemma
+-r ../m03/requirements.txt
+pymilvus[milvus_lite]==2.6.9       # already pulled in by nvidia-nat 1.9.0; [milvus_lite] adds the local database
+milvus-lite==3.2.1
+langchain-text-splitters==1.1.2    # MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
+ollama==0.6.2                      # ollama.embed() for the embeddings

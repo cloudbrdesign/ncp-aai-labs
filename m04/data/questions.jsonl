@@ -1,0 +1,20 @@
+{"id": "q01", "type": "exact", "question": "What does error E42 mean?", "product": "D300", "section": "Troubleshooting"}
+{"id": "q02", "type": "exact", "question": "The dock utility shows E45. What should I do?", "product": "D300", "section": "Troubleshooting"}
+{"id": "q03", "type": "exact", "question": "I got E47 after an update.", "product": "D300", "section": "Troubleshooting"}
+{"id": "q04", "type": "exact", "question": "Does the D300 support MST?", "product": "D300", "section": "Connecting displays"}
+{"id": "q05", "type": "exact", "question": "What does firmware 2.4 fix?", "product": "D300", "section": "Firmware updates"}
+{"id": "q06", "type": "exact", "question": "What is error E21?", "product": "H200", "section": "Troubleshooting"}
+{"id": "q07", "type": "exact", "question": "How do I fix E24?", "product": "H200", "section": "Troubleshooting"}
+{"id": "q08", "type": "exact", "question": "The screen says E73.", "product": "M270", "section": "Troubleshooting"}
+{"id": "q09", "type": "exact", "question": "What is E76?", "product": "M270", "section": "Troubleshooting"}
+{"id": "q10", "type": "exact", "question": "VESA 100 x 100 with M4 screws?", "product": "M270", "section": "Setup"}
+{"id": "q11", "type": "paraphrase", "question": "My new phone can't find my headphones. How do I connect them?", "product": "H200", "section": "Pairing"}
+{"id": "q12", "type": "paraphrase", "question": "How long until the headphones are full?", "product": "H200", "section": "Charging"}
+{"id": "q13", "type": "paraphrase", "question": "How do I stop the headphones from blocking outside noise?", "product": "H200", "section": "Controls"}
+{"id": "q14", "type": "paraphrase", "question": "My second screen just copies the first one.", "product": "D300", "section": "Connecting displays"}
+{"id": "q15", "type": "paraphrase", "question": "Can I hang the screen on the wall?", "product": "M270", "section": "Setup"}
+{"id": "q16", "type": "paraphrase", "question": "How do I make the screen easier on my eyes at night?", "product": "M270", "section": "On-screen menu"}
+{"id": "q17", "type": "paraphrase", "question": "How long do I have to send something back?", "product": "FAQ", "section": "Returns"}
+{"id": "q18", "type": "paraphrase", "question": "When do I get my money back?", "product": "FAQ", "section": "Refunds"}
+{"id": "q19", "type": "paraphrase", "question": "The parcel came smashed. What now?", "product": "FAQ", "section": "Damaged in transit"}
+{"id": "q20", "type": "paraphrase", "question": "Is a fault after one year still covered?", "product": "FAQ", "section": "Warranty"}
