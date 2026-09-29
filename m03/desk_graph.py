@@ -139,12 +139,12 @@ def draft(state: DeskState) -> dict:
         rules.append(f"- Write in {profile['language']}.")
     rules += [f"- Lesson from earlier: {l}" for l in state.get("lessons", [])]
     rules += [f"- Fix this: {f}" for f in state.get("feedback", [])]
-    facts = "\n".join(f"- {json.dumps(ev)}" for ev in state["evidence"])
+    facts = "\n".join(f"- {handlers.sentence(ev)}" for ev in state["evidence"])
     system = DRAFT_PROMPT.format(rules="\n".join(rules), facts=facts)
-    if state.get("episode"):   # episodic memory as a worked example (IDs hidden so they aren't copied)
-        ep = state["episode"]
-        system += f"\nA similar past case, for tone only:\nCustomer: {planner.ORDER_ID.sub('<order>', ep['request'])}" \
-                  f"\nDesk: {planner.ORDER_ID.sub('<order>', ep['reply'])}\n"
+    if state.get("episode"):   # episodic memory: how a similar request was handled (steps, not the old
+        ep = state["episode"]  # reply text, so old facts can't leak into this answer)
+        steps = ", ".join(s["action"] for s in ep.get("steps", [])) or "answer"
+        system += f"\nA similar past request ({planner.ORDER_ID.sub('<order>', ep['request'])}) was handled with: {steps}.\n"
     user = as_text(history(state) + [HumanMessage(state["request"])])
     try:
         text, source = chat([("system", system), ("user", user)]), "model"
@@ -165,9 +165,11 @@ def critique(state: DeskState, runtime: Runtime) -> dict:
     known = [ev["order_id"] for ev in state["evidence"] if ev.get("order_id") and not ev.get("error")]
     feedback = critic.checks(state["draft"], planned, known, state["profile"])
     facts = "\n".join(handlers.sentence(ev) for ev in state["evidence"])
-    critic.grade(facts, state["draft"], log=log)
+    score = critic.grade(facts, state["draft"], log=log)
+    if score == 0:
+        feedback.append("grounding: the reply contradicts the facts; restate only what they say")
     if not feedback:
-        log("[critique] PASS: order IDs answered, none invented, contact preference respected")
+        log("[critique] PASS: order IDs answered, none invented, contact preference respected, grounded")
         return {"feedback": []}
     for f in feedback:
         log(f"[critique] FAIL {f}")

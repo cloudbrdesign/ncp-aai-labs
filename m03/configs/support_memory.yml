@@ -34,7 +34,7 @@ functions:
 
 workflow:
   _type: react_agent
-  tool_names: [get_memory, lookup_order, create_ticket, add_memory]
+  tool_names: [get_memory, lookup_order]   # add_memory and create_ticket stay defined; a 3B model does best with two tools
   llm_name: chat_llm
   verbose: true
   max_tool_calls: 4

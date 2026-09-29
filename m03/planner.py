@@ -79,6 +79,8 @@ def make_plan(request: str, history: str, carried: list[str], log=print) -> tupl
     try:
         plan = chat([("system", PROMPT), ("user", user)], schema=Plan)
         plan.steps = [Step(action=s.action, order_id=s.order_id.strip().upper()) for s in plan.steps]
+        if len(plan.steps) > 1:   # a general "answer" step next to real steps adds nothing: drop it
+            plan.steps = [s for s in plan.steps if s.action != "answer"] or plan.steps
         issues = problems(plan, request, carried)
     except Exception as e:  # invalid JSON, schema mismatch, model not reachable
         issues = [f"{type(e).__name__}: {str(e).splitlines()[0][:120]}"]

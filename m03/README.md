@@ -25,7 +25,7 @@ set the variables from the Module 1 README (`LLM_PROVIDER`, `LLM_BASE_URL`, `LLM
 `LLM_API_KEY`).
 
 A 3B model is small, so it only gets short jobs with a fixed answer shape: a plan from a
-fixed menu, the reply text, and one advisory grade. Order lookups, routing, most checks
+fixed menu, the reply text, and one groundedness grade. Order lookups, routing, most checks
 and memory writes are plain Python. Every model step has a fallback, and the log says
 when it was used (`fallback`, `template`).
 
@@ -181,14 +181,14 @@ python m03/desk_graph.py --bad-draft --thread t7 --input "Can I return order A10
 
 `critique` checks the draft with rules (every planned order ID is answered, no order ID
 outside the evidence, the contact preference is respected) and asks the model for one
-advisory groundedness grade, 0 to 2. `--bad-draft` plants order A1009 in the first draft:
+groundedness grade, 0 to 2; a 0 (the reply contradicts the facts) sends the draft back too. `--bad-draft` plants order A1009 in the first draft:
 
 ```
-[critique] groundedness 0/2 (model, advisory): ...
+[critique] groundedness 0/2 (model): ...
 [critique] FAIL unknown_order: A1009 is not in the facts; remove it
 [critique] lesson saved (1/3 kept): Only mention order IDs that are in the facts.
 [draft] revision 1 (model): ...
-[critique] PASS: order IDs answered, none invented, contact preference respected
+[critique] PASS: order IDs answered, none invented, contact preference respected, grounded
 ```
 
 Failed checks go back to `draft` as named feedback, at most 2 times; after that the desk
@@ -199,15 +199,15 @@ lesson to the customer's lessons, which keep only the newest 3.
 
 ```bash
 nat run --config_file m03/configs/support_memory.yml \
-  --input "Can you give me a call about returning order A1002?"
+  --input "Can you give me a call about my order A1001?"
 ```
 
 `m03/desk_memory` registers a `desk_memory` memory provider (`register_memory`, a
 `MemoryEditor` over `m03/state/memory.db`, keyword search, no embedder).
-`configs/support_memory.yml` is the M2 support agent plus the toolkit's `get_memory` and
-`add_memory` tools with a fixed `user_id: tom`, so the model never picks whose memory it
-reads. Run step 5 first: the agent calls `get_memory`, finds "email only", and offers
-email instead of a call.
+`configs/support_memory.yml` is the M2 support agent with the toolkit's `get_memory` tool and
+`lookup_order` (`add_memory` is defined too) with a fixed `user_id: tom`, so the model never picks whose memory it
+reads. Run step 5 first: the agent calls `get_memory`, finds "email only", looks up
+A1001, and answers by email instead of offering a call.
 
 Optional: the ReWOO agent over the same tools. Compare its `#E1`, `#E2` plan with step 2.
 If the 3B model can't write the ReWOO plan format, use NVIDIA mode.
