@@ -244,8 +244,9 @@ manual search is filtered to the dock:
 ```
 
 The draft sees the order facts and the passages, each with its chunk ID, and must cite
-the IDs it uses. `critique` keeps the M3 checks and adds two: every cited ID was retrieved
-in this turn, and a reply that uses passages cites at least one. `--bad-draft` cites a
+the IDs it uses. `critique` keeps the M3 checks and adds three: every cited ID was retrieved
+in this turn, nothing but passage IDs goes in square brackets (a bare `[D300]` is sent
+back), and a reply that uses passages cites at least one. `--bad-draft` cites a
 headset chunk that was never retrieved:
 
 ```
@@ -272,7 +273,7 @@ returns only that product; keyword search ranks the E42 chunk first; hybrid hit@
 least the lower of dense and keyword; the SQL tool answers A1003 and refuses a write; the
 router sends order, manual and mixed requests to the right sources and an invalid plan
 falls back; the desk filters the manual search by the order's product and cites only
-retrieved chunks; a planted citation is caught.
+retrieved chunks, with nothing else in square brackets; a planted citation is caught.
 
 Small local models don't follow instructions every time. If a check fails, run it again;
 if it keeps failing, try NVIDIA mode for chat or a larger local model.

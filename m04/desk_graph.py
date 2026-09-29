@@ -61,11 +61,13 @@ MAX_REVISIONS = 2
 RECURSION_LIMIT = 25
 PLANTED_CHUNK = "H200-specifications-1"   # --bad-draft cites this chunk, which a dock question never retrieves
 CITATION = re.compile(r"\b((?:H200|D300|M270|FAQ)-[a-z0-9-]+?-\d+)\b")   # a chunk ID, with or without [ ]
+BRACKET = re.compile(r"\[([^\[\]\n]{1,60})\]")                           # anything written in [ ]
 DEMO = "My D300 dock shows E42. What does it mean?"
 
 critic.LESSONS.update({
     "unknown_chunk": "Cite only the passage IDs you were given.",
     "missing_citation": "Cite the passage ID after every manual claim.",
+    "not_a_passage": "Put only passage IDs in square brackets.",
 })
 
 SHOW = {"log": True, "plan": False}
@@ -183,10 +185,13 @@ def draft(state: DeskState) -> dict:
 
 
 def rag_checks(draft_text: str, retrieved: list[str]) -> list[str]:
-    """The two RAG rules: cite only retrieved chunks, and cite at least one when passages were used."""
+    """The RAG rules: cite only retrieved chunks, put nothing but passage IDs in [ ], and cite at least one when passages were used."""
     cited = list(dict.fromkeys(CITATION.findall(draft_text)))
     feedback = [f"unknown_chunk: [{c}] was not retrieved; cite only the passage IDs given" for c in cited
                 if c not in retrieved]
+    feedback += [f"not_a_passage: [{b}] is not a passage ID; put only passage IDs in [ ]"
+                 for b in dict.fromkeys(BRACKET.findall(draft_text))
+                 if not all(CITATION.fullmatch(x.strip()) for x in re.split(r"[;,]", b))]
     if retrieved and not cited:
         feedback.append("missing_citation: the reply cites no passage; add the passage ID after each manual claim")
     return feedback

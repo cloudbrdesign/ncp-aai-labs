@@ -147,7 +147,7 @@ def main():
               out["evidence"])
         cited = desk_graph.CITATION.findall(out["reply"])
         check(f"Desk reply cites only retrieved chunks ({', '.join(cited) or 'none'})",
-              cited and set(cited) <= set(retrieved), out["reply"])
+              cited and set(cited) <= set(retrieved) and not desk_graph.rag_checks(out["reply"], retrieved), out["reply"])
         lines = []
         desk_graph.log = lines.append
         desk_graph.SHOW["log"] = True
