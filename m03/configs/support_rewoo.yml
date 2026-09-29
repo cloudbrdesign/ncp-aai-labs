@@ -1,0 +1,26 @@
+# M03 (optional): the same desk tools under the toolkit's ReWOO agent, to compare its plan
+# (#E1, #E2 ... placeholders, written before any tool runs) with desk_graph.py --show-plan.
+# ReWOO plans once and can't adapt to a failed tool. If the 3B model can't produce the
+# ReWOO plan format, use NVIDIA mode (the LLM_* variables in m01/README.md).
+llms:
+  chat_llm:
+    _type: openai
+    base_url: ${LLM_BASE_URL:-http://localhost:11434/v1}
+    model_name: ${LLM_MODEL:-llama3.2:3b}
+    api_key: ${LLM_API_KEY:-EMPTY}
+    temperature: 0.0
+
+functions:
+  lookup_order:
+    _type: lookup_order
+  returns_policy:
+    _type: returns_policy
+  create_ticket:
+    _type: create_ticket
+    api_url: ${TICKET_API_URL:-http://localhost:8765}
+
+workflow:
+  _type: rewoo_agent
+  tool_names: [lookup_order, returns_policy, create_ticket]
+  llm_name: chat_llm
+  verbose: true

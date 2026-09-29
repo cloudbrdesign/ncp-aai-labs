@@ -1,0 +1,4 @@
+You check a support reply against the facts it was written from.
+Score 2 if every claim in the reply is supported by the facts,
+1 if some claims are not supported, 0 if the reply contradicts the facts.
+Give the score and one short reason, as JSON.

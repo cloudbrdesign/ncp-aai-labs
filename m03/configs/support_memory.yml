@@ -1,0 +1,41 @@
+# M03: the M2 support agent with long-term memory, shared with the LangGraph desk.
+#   desk_memory  our memory provider over m03/state/memory.db (pip install -e m03/desk_memory)
+#   get_memory / add_memory  the toolkit's memory tools. user_id is fixed here: the model
+#                never chooses whose memory it reads (tom = desk_graph.py's default --customer).
+llms:
+  chat_llm:
+    _type: openai
+    base_url: ${LLM_BASE_URL:-http://localhost:11434/v1}
+    model_name: ${LLM_MODEL:-llama3.2:3b}
+    api_key: ${LLM_API_KEY:-EMPTY}
+    temperature: 0.0
+    num_retries: 3
+
+memory:
+  desk:
+    _type: desk_memory
+
+functions:
+  get_memory:
+    _type: get_memory
+    memory: desk
+    user_id: tom
+    description: "Look up what we know about this customer (preferences, past requests). Give a short query and top_k."
+  add_memory:
+    _type: add_memory
+    memory: desk
+    user_id: tom
+    description: "Save a new fact about this customer, for example a contact preference. Give it as memory, a short sentence."
+  lookup_order:
+    _type: lookup_order
+  create_ticket:
+    _type: create_ticket
+    api_url: ${TICKET_API_URL:-http://localhost:8765}
+
+workflow:
+  _type: react_agent
+  tool_names: [get_memory, lookup_order, create_ticket, add_memory]
+  llm_name: chat_llm
+  verbose: true
+  max_tool_calls: 4
+  additional_instructions: file://../prompts/memory_rules.md

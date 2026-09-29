@@ -1,0 +1,4 @@
+# M03 adds LangGraph's SQLite checkpointer and store (m03/state/*.db) to the M02 pins.
+-r ../m02/requirements.txt
+langgraph==1.2.12                    # already pulled in by nvidia-nat 1.9.0; pinned because we use it directly
+langgraph-checkpoint-sqlite==3.1.1   # SqliteSaver (threads) and SqliteStore (long-term memory)

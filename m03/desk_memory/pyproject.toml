@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ncp-aai-desk-memory"
+version = "0.1.0"
+description = "Course lab NAT memory provider (desk_memory) over the desk's SQLite memory file"
+requires-python = ">=3.11"
+dependencies = ["nvidia-nat==1.9.0", "langgraph-checkpoint-sqlite==3.1.1"]
+
+[project.entry-points.'nat.plugins']
+desk_memory = "desk_memory.register"
+
+[tool.setuptools.packages.find]
+where = ["src"]
