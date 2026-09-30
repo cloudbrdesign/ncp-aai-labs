@@ -1,0 +1,8 @@
+# M06 adds the toolkit's Ragas evaluator (and Ragas itself) to the M05 pins.
+-r ../m05/requirements.txt
+nvidia-nat-ragas==1.9.0   # NAT's `ragas` evaluator; pulls in ragas, instructor and datasets
+ragas==0.4.3              # already pulled in by nvidia-nat-ragas; pinned because ragas_eval.py uses it directly
+scipy==1.17.1             # binomtest for the exact McNemar test in compare_configs.py (came with ragas)
+diskcache==5.6.3          # Ragas' DiskCacheBackend stores judge replies here (came with ragas)
+# Optional, in a separate Python 3.12 venv (see README): NeMo Evaluator from Git at tag v0.3.0
+# with the `stats` extra, for `nel compare` on the files compare_configs.py writes.
