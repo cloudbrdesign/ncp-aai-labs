@@ -1,0 +1,38 @@
+# Dialog rails for the desk (Colang 1.0). The intent comes from embeddings only.
+
+define user ask off topic
+  "Is your dock better than the Brand X dock?"
+  "Which competitor sells cheaper monitors?"
+  "What do you think about the election?"
+  "Write me a poem about the sea."
+  "What will the weather be like tomorrow?"
+  "Can you help me with my maths homework?"
+  "Tell me a joke."
+
+define user support request
+  "Where is order A1003?"
+  "My D300 dock shows E42. What does it mean?"
+  "How do I pair the H200 headset?"
+  "Can I return my monitor?"
+  "The dock from order A1002 won't drive my second screen."
+  "My order arrived damaged."
+
+define bot refuse off topic
+  "Sorry, I can only help with your orders and our products: the H200 headset, the D300 dock and the M270 monitor."
+
+define bot refuse to respond
+  "Sorry, I can't help with that. Please ask about your order or one of our products."
+
+# Off-topic: a canned answer, no LLM call and no desk run.
+define flow off topic
+  user ask off topic
+  bot refuse off topic
+
+# Everything else: the M4 desk answers (guarded_desk.py registers desk_answer). The action
+# also puts the passages and order facts it used into $relevant_chunks, and
+# $check_facts = True makes the "self check facts" output rail check the reply against them.
+define flow support
+  user support request
+  $answer = execute desk_answer(question=$user_message)
+  $check_facts = True
+  bot $answer

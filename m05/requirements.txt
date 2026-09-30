@@ -1,0 +1,7 @@
+# M05 adds the toolkit's profiler and NeMo Guardrails to the M04 pins.
+-r ../m04/requirements.txt
+nvidia-nat[langchain,profiler]==1.9.0   # the profiler and the performance evaluators for `nat eval`
+nemoguardrails==0.24.1                  # standalone Guardrails (input, dialog and output rails)
+langchain-openai==1.6.6                 # already pulled in by the toolkit; the rails reach Ollama's /v1 with ChatOpenAI
+# Not installed: nvidia-nat[config-optimizer] (`nat optimize`, shown on a slide only) and
+# nvidia-nat[guardrails] (needs nemoguardrails<0.22, so it can't sit next to 0.24.1).

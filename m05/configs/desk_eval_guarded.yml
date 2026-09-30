@@ -1,0 +1,48 @@
+# NeMo Agent Toolkit 1.9.0: the desk behind NeMo Guardrails (guarded_desk.py), with the profiler.
+# Run from the repo root (the paths below are relative to it):
+#   nat validate --config_file m05/configs/desk_eval_guarded.yml
+#   nat run      --config_file m05/configs/desk_eval_guarded.yml --input "Where is order A1003?"
+#   nat eval     --config_file m05/configs/desk_eval_guarded.yml
+# The chat model is not set here: the desk takes it from m05/llm_calls.py (LLM_PROVIDER).
+
+workflow:
+  _type: langgraph_wrapper
+  description: The M4 support desk behind input, dialog and output rails
+  dependencies: [m05]              # added to sys.path, so the evaluators can import evals.py
+  graph: m05/desk_app.py:guarded_agent   # a function that returns the compiled graph
+
+eval:
+  general:
+    output_dir: m05/state/nat/guarded
+    max_concurrency: 1             # one question at a time: the Mac runs one small model
+    dataset:
+      _type: json
+      file_path: m05/data/eval.json
+    profiler:
+      base_metrics: true
+      compute_llm_metrics: true    # per-call latency and tokens
+      csv_exclude_io_text: true    # keep prompts and replies out of the CSV
+      bottleneck_analysis:
+        enable_nested_stack: true
+      prompt_caching_prefixes:     # prompt prefixes that repeat: candidates for KV-cache reuse
+        enable: true
+        min_frequency: 0.1
+
+  evaluators:
+    has_fact:
+      _type: langsmith_custom
+      evaluator: evals.has_fact
+      extra_fields: {keywords: keywords}
+    cites_right_manual:
+      _type: langsmith_custom
+      evaluator: evals.cites_right_manual
+      extra_fields: {product: product}
+    no_invented_order:
+      _type: langsmith_custom
+      evaluator: evals.no_invented_order
+    llm_latency:
+      _type: avg_llm_latency
+    llm_calls:
+      _type: avg_num_llm_calls
+    workflow_runtime:
+      _type: avg_workflow_runtime

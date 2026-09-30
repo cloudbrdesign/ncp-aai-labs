@@ -1,0 +1,36 @@
+# NeMo Guardrails 0.24.1 configuration for the M5 support desk (Colang 1.0).
+#
+# Free mode: both models are on local Ollama. The main model uses the `ollama` engine
+# (Ollama's OpenAI-compatible API); the embeddings use the `openai` engine pointed at
+# Ollama's /v1/embeddings with embeddinggemma, so Guardrails downloads no FastEmbed model.
+# guarded_desk.py replaces both base URLs with the Ollama address from OLLAMA_HOST, and
+# hands the rails the desk's own chat model (Ollama or, with LLM_PROVIDER=nim, the NIM).
+models:
+  - type: main
+    engine: ollama
+    model: llama3.2:3b
+    parameters:
+      base_url: http://localhost:11434/v1
+  - type: embeddings
+    engine: openai
+    model: embeddinggemma
+    parameters:
+      base_url: http://localhost:11434/v1
+      api_key: ollama              # Ollama ignores the key; the client wants one
+
+rails:
+  input:
+    flows:
+      - self check input           # prompts.yml: the desk policy, "Yes" = block
+  dialog:
+    user_messages:
+      # Find the user intent by embeddings only (no LLM call). A message closer than the
+      # threshold to an example in rails.co gets that intent; anything else gets the
+      # fallback intent, which runs the desk (see rails.co).
+      embeddings_only: true
+      embeddings_only_similarity_threshold: 0.6
+      embeddings_only_fallback_intent: support request
+  output:
+    flows:
+      - self check output          # prompts.yml: no internal notes, no secrets
+      - self check facts           # the reply against the passages the desk retrieved

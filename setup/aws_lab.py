@@ -4,6 +4,9 @@
     python setup/aws_lab.py quota --request 8     # ask AWS to raise it to 8 vCPUs
     python setup/aws_lab.py budget --email you@example.com [--limit 10]
     python setup/aws_lab.py up                    # launch one GPU instance, run checks
+    python setup/aws_lab.py ngc-key               # (Module 5) store your NGC key in SSM, typed hidden
+    python setup/aws_lab.py up --lab m05          # (Module 5) the same, plus a Llama 3.1 8B NIM
+    python setup/aws_lab.py tunnel                # (Module 5) NIM on http://localhost:8000 via Session Manager
     python setup/aws_lab.py status
     python setup/aws_lab.py down                  # delete everything `up` created
 
@@ -33,6 +36,9 @@ QUOTA_CODE = "L-DB2E81BA"
 DLAMI_SSM = ("/aws/service/deeplearning/ami/x86_64/"
              "base-oss-nvidia-driver-gpu-ubuntu-22.04/latest/ami-id")
 TEMPLATE = pathlib.Path(__file__).parent / "cfn" / "gpu-lab.yaml"
+NIM_IMAGE = "nvcr.io/nim/meta/llama-3.1-8b-instruct:2.0.13"   # pinned; the NIM docs' tag
+NGC_KEY_PARAM = "/ncp-aai/ngc-api-key"    # SecureString you create with `ngc-key`
+NIM_PORT = 8000
 
 
 def client(name):
@@ -110,8 +116,11 @@ def cmd_up(args):
         print("Your GPU quota is too low. Run `python setup/aws_lab.py quota` first.")
         return 1
     ami = client("ssm").get_parameter(Name=DLAMI_SSM)["Parameter"]["Value"]
-    name = client("ec2").describe_images(ImageIds=[ami])["Images"][0]["Name"]
+    image = client("ec2").describe_images(ImageIds=[ami])["Images"][0]
+    name, root_dev = image["Name"], image["RootDeviceName"]
     print(f"AMI: {ami} ({name})")
+    if args.lab == "m05":
+        print(f"Module 5: the instance also pulls and starts {NIM_IMAGE} on port {NIM_PORT}.")
     cf = client("cloudformation")
     if _stack_exists(cf):
         print(f"Stack {STACK} already exists. Run `python setup/aws_lab.py down` first.")
@@ -120,7 +129,12 @@ def cmd_up(args):
         StackName=STACK, TemplateBody=TEMPLATE.read_text(),
         Parameters=[{"ParameterKey": "ImageId", "ParameterValue": ami},
                     {"ParameterKey": "InstanceType", "ParameterValue": INSTANCE_TYPE},
-                    {"ParameterKey": "MaxMinutes", "ParameterValue": str(MAX_MINUTES)}],
+                    {"ParameterKey": "MaxMinutes", "ParameterValue": str(MAX_MINUTES)},
+                    {"ParameterKey": "Lab", "ParameterValue": args.lab},
+                    {"ParameterKey": "NimImage", "ParameterValue": NIM_IMAGE},
+                    {"ParameterKey": "RootDeviceName", "ParameterValue": root_dev},
+                    {"ParameterKey": "NgcKeyParameter", "ParameterValue": NGC_KEY_PARAM}],
+        Capabilities=["CAPABILITY_IAM"],          # m05 adds an instance role for Session Manager
         Tags=[{"Key": "Project", "Value": "ncp-aai-labs"}])
     started = dt.datetime.now()
     print(f"Creating stack {STACK} ... (the instance terminates itself about "
@@ -136,8 +150,13 @@ def cmd_up(args):
     iid = stack_instance()
     print(f"Instance {iid} ({INSTANCE_TYPE}) is running. Waiting for its checks "
           "(console output can take several minutes to appear)...")
-    for _ in range(40):                     # up to ~20 minutes
+    shown = set()
+    for _ in range(100 if args.lab == "m05" else 40):   # up to ~50 / ~20 minutes
         checks = console_checks(iid)
+        for k, v in checks.items():                      # print NIM progress as it arrives
+            if k.startswith(("ngc_", "nim_", "profiles")) and (k, v) not in shown:
+                shown.add((k, v))
+                print(f"  {k:18} {v}")
         if "DONE" in checks:
             break
         time.sleep(30)
@@ -146,8 +165,17 @@ def cmd_up(args):
               "minutes, and `python setup/aws_lab.py down` when you are finished.")
         return 1
     for k, v in checks.items():
-        if k not in ("START", "DONE"):
+        if k not in ("START", "DONE") and not k.startswith(("ngc_", "nim_", "profiles")):
             print(f"  {k:18} {v}")
+    if args.lab == "m05":
+        if checks.get("nim_ready", "").startswith("yes"):
+            print("NIM is ready. Next, in a second terminal: python setup/aws_lab.py tunnel\n"
+                  "then: python m05/check.py --aws   and finally: python setup/aws_lab.py down")
+        else:
+            print("The NIM did not become ready (see the lines above). "
+                  "Delete everything with: python setup/aws_lab.py down")
+            return 1
+        return 0
     print("Next: python setup/check_env.py --mode aws, then python setup/aws_lab.py down")
     return 0
 
@@ -185,6 +213,36 @@ def cmd_down(args):
     return 0
 
 
+def cmd_ngc_key(args):
+    """Store the NGC API key as an SSM SecureString. The key is typed hidden and never printed."""
+    import getpass
+    key = getpass.getpass("NGC API key (input hidden): ").strip()
+    if not key:
+        print("No key entered; nothing stored.")
+        return 1
+    client("ssm").put_parameter(Name=NGC_KEY_PARAM, Value=key, Type="SecureString", Overwrite=True)
+    print(f"Stored as SecureString {NGC_KEY_PARAM} in {REGION}. Only the lab instance's role can read it.")
+    return 0
+
+
+def cmd_tunnel(args):
+    """Forward localhost:8000 on this machine to port 8000 on the lab instance (Session Manager)."""
+    import shutil
+    import subprocess
+    iid = stack_instance()
+    if not iid:
+        print("No lab instance. Run `python setup/aws_lab.py up --lab m05` first.")
+        return 1
+    if not shutil.which("aws") or not shutil.which("session-manager-plugin"):
+        print("Needs the AWS CLI and the Session Manager plugin on this machine (see setup/README.md).")
+        return 1
+    print(f"Forwarding http://localhost:{args.port} -> {iid}:{NIM_PORT}. Leave this running; Ctrl+C to stop.")
+    return subprocess.call([
+        "aws", "ssm", "start-session", "--region", REGION, "--target", iid,
+        "--document-name", "AWS-StartPortForwardingSession",
+        "--parameters", f'{{"portNumber":["{NIM_PORT}"],"localPortNumber":["{args.port}"]}}'])
+
+
 def _stack_exists(cf):
     try:
         cf.describe_stacks(StackName=STACK)
@@ -199,10 +257,14 @@ def main():
     q = sp.add_parser("quota"); q.add_argument("--request", type=int)
     b = sp.add_parser("budget"); b.add_argument("--email", required=True)
     b.add_argument("--limit", type=int, default=10, help="USD per month (default 10)")
-    sp.add_parser("up"); sp.add_parser("status"); sp.add_parser("down")
+    u = sp.add_parser("up")
+    u.add_argument("--lab", choices=["none", "m05"], default="none",
+                   help="m05 also starts a Llama 3.1 8B NIM (Module 5)")
+    t = sp.add_parser("tunnel"); t.add_argument("--port", type=int, default=NIM_PORT)
+    sp.add_parser("ngc-key"); sp.add_parser("status"); sp.add_parser("down")
     args = p.parse_args()
-    return {"quota": cmd_quota, "budget": cmd_budget, "up": cmd_up,
-            "status": cmd_status, "down": cmd_down}[args.cmd](args)
+    return {"quota": cmd_quota, "budget": cmd_budget, "up": cmd_up, "ngc-key": cmd_ngc_key,
+            "tunnel": cmd_tunnel, "status": cmd_status, "down": cmd_down}[args.cmd](args)
 
 
 if __name__ == "__main__":

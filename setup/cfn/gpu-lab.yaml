@@ -17,6 +17,32 @@ Parameters:
     MinValue: 10
     MaxValue: 55
     Description: Minutes after boot before the instance terminates itself
+  Lab:
+    Type: String
+    Default: none
+    AllowedValues: [none, m05]
+    Description: "m05 also starts a NIM on port 8000 and allows Session Manager port forwarding"
+  NimImage:
+    Type: String
+    Default: nvcr.io/nim/meta/llama-3.1-8b-instruct:2.0.13
+    Description: NIM container image (pinned tag, never latest)
+  RootDeviceName:
+    Type: String
+    Default: /dev/sda1
+    Description: Root device of the AMI (aws_lab.py reads it from the image)
+  RootVolumeGiB:
+    Type: Number
+    Default: 150
+    MinValue: 75
+    MaxValue: 300
+    Description: Root disk size for m05 (NIM image plus model weights)
+  NgcKeyParameter:
+    Type: String
+    Default: /ncp-aai/ngc-api-key
+    Description: SecureString parameter holding your NGC API key (optional; you create it yourself)
+
+Conditions:
+  IsM05: !Equals [!Ref Lab, m05]
 
 Resources:
   LabSecurityGroup:
@@ -26,6 +52,39 @@ Resources:
       Tags:
         - {Key: Project, Value: ncp-aai-labs}
 
+  # m05 only: lets Session Manager reach the instance (no inbound port is opened)
+  # and lets the instance read your NGC key parameter, if you created one.
+  LabRole:
+    Type: AWS::IAM::Role
+    Condition: IsM05
+    Properties:
+      Path: /ncp-aai/
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: read-ngc-key
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${NgcKeyParameter}
+      Tags:
+        - {Key: Project, Value: ncp-aai-labs}
+
+  LabInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Condition: IsM05
+    Properties:
+      Path: /ncp-aai/
+      Roles: [!Ref LabRole]
+
   LabLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
@@ -33,6 +92,12 @@ Resources:
         ImageId: !Ref ImageId
         InstanceType: !Ref InstanceType
         InstanceInitiatedShutdownBehavior: terminate
+        IamInstanceProfile: !If [IsM05, {Arn: !GetAtt LabInstanceProfile.Arn}, !Ref AWS::NoValue]
+        BlockDeviceMappings: !If
+          - IsM05
+          - - DeviceName: !Ref RootDeviceName
+              Ebs: {VolumeSize: !Ref RootVolumeGiB, VolumeType: gp3, DeleteOnTermination: true}
+          - !Ref AWS::NoValue
         SecurityGroupIds:
           - !GetAtt LabSecurityGroup.GroupId
         MetadataOptions:
@@ -67,6 +132,45 @@ Resources:
             log "docker=$(docker version --format '{{.Server.Version}}' 2>/dev/null || echo missing)"
             log "container_toolkit=$(nvidia-ctk --version 2>/dev/null | head -1 | grep -o '[0-9][0-9.]*' | head -1 || echo missing)"
             log "os=$(. /etc/os-release && echo $PRETTY_NAME)"
+            log "ssm_agent=$(snap list amazon-ssm-agent 2>/dev/null | awk 'NR==2{print $2}' || echo missing)"
+            if [ "${Lab}" = "m05" ]; then
+              log "disk_free_gb=$(df -BG --output=avail / | tail -1 | tr -dc 0-9)"
+              t0=$(date +%s)
+              mins() { echo $(( ($(date +%s) - t0) / 60 )); }
+              key=$(aws ssm get-parameter --region ${AWS::Region} --name ${NgcKeyParameter} --with-decryption --query Parameter.Value --output text 2>/dev/null || true)
+              if [ -n "$key" ]; then
+                echo "$key" | docker login nvcr.io -u '$oauthtoken' --password-stdin >/dev/null 2>&1 && log "ngc_login=ok" || log "ngc_login=failed"
+              else
+                log "ngc_login=skipped (no key parameter)"
+              fi
+              if docker pull -q ${NimImage} >/dev/null 2>/tmp/pull.err; then
+                log "nim_pull=ok in $(mins) min, image $(docker image inspect -f '{{.Size}}' ${NimImage} | awk '{printf "%.1f GB", $1/1e9}')"
+              else
+                log "nim_pull=failed: $(tail -c 200 /tmp/pull.err | tr '\n' ' ')"
+                log "DONE"
+                exit 0
+              fi
+              mkdir -p /opt/nim-cache && chmod 777 /opt/nim-cache
+              docker run --rm --gpus=all -e NGC_API_KEY="$key" -v /opt/nim-cache:/opt/nim/.cache ${NimImage} list-model-profiles 2>&1 \
+                | grep -iE "compatible|low.memory|incompatible|vllm-|sglang-|trtllm-" | head -20 | while read -r l; do log "profiles| $l"; done
+              docker run -d --name nim --gpus=all --shm-size=16GB -e NGC_API_KEY="$key" \
+                -v /opt/nim-cache:/opt/nim/.cache -p 8000:8000 ${NimImage} \
+                --enable-auto-tool-choice --tool-call-parser llama3_json >/dev/null
+              for i in $(seq 1 180); do
+                curl -sf localhost:8000/v1/health/ready >/dev/null && break
+                docker ps -q -f name=nim | grep -q . || break
+                sleep 10
+              done
+              if curl -sf localhost:8000/v1/health/ready >/dev/null; then
+                log "nim_ready=yes after $(mins) min"
+                log "nim_models=$(curl -s localhost:8000/v1/models | tr -d '\n' | head -c 300)"
+                log "nim_metadata=$(curl -s localhost:8000/v1/metadata | tr -d '\n' | head -c 600)"
+                log "gpu_mem_used=$(nvidia-smi --query-gpu=memory.used --format=csv,noheader)"
+                log "nim_chat=$(curl -s localhost:8000/v1/chat/completions -H 'Content-Type: application/json' -d '{"model":"meta/llama-3.1-8b-instruct","max_tokens":30,"messages":[{"role":"user","content":"In one sentence: what does a docking station do?"}]}' | tr -d '\n' | head -c 400)"
+              else
+                log "nim_ready=no after $(mins) min; last log: $(docker logs --tail 5 nim 2>&1 | tr '\n' ' ' | tail -c 400)"
+              fi
+            fi
             log "DONE"
 
   LabInstance:
