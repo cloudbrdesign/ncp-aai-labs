@@ -381,6 +381,16 @@ With `NIM_MAX_MODEL_LEN=8192` the NIM started the FP8 profile (`vllm-fp8-tp1-pp1
 used 20962 MiB of GPU memory. Health, models, metadata, chat, streaming, JSON mode and tool
 calls all answered through the Session Manager tunnel. The DLAMI had the SSM agent (3.3.4793.0).
 
+Load test against the NIM (16 requests per level, 64 tokens each): p50 latency stayed at
+2.6-2.7 s while throughput rose from 24 tokens/s at concurrency 1 to 94 at 4 and 189 at 8,
+because the server batches concurrent requests. On the Mac, Ollama's p50 went from 0.72 s to
+2.87 s from concurrency 1 to 4 while throughput stayed at about 66 tokens/s: the requests
+queued. Different models and hardware, so compare the shapes, not the numbers.
+
+`rails_check.py` with the 8B NIM as the rails' model: 11 of 12 messages and 6 of 6 replies
+right. It caught the fan-failure claim the 3B model let through; its input rail blocked
+"Which competitor sells cheaper docks?", which the off-topic rail should have answered.
+
 Packages in the self-test venv: nvidia-nat 1.9.0 (with `langchain`, `profiler`),
 nemoguardrails 0.24.1, langchain-core 1.6.5, langchain-ollama 1.1.0, langchain-openai
 1.6.6, langchain-nvidia-ai-endpoints 1.4.3, langgraph 1.2.12, openai 2.54.0, pymilvus
