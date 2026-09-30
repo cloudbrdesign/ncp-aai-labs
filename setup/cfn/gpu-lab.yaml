@@ -36,6 +36,9 @@ Parameters:
     MinValue: 75
     MaxValue: 300
     Description: Root disk size for m05 (NIM image plus model weights)
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Default subnet in the Availability Zone to try (aws_lab.py picks it)
   NgcKeyParameter:
     Type: String
     Default: /ncp-aai/ngc-api-key
@@ -179,6 +182,7 @@ Resources:
       LaunchTemplate:
         LaunchTemplateId: !Ref LabLaunchTemplate
         Version: !GetAtt LabLaunchTemplate.LatestVersionNumber
+      SubnetId: !Ref SubnetId
 
 Outputs:
   InstanceId:

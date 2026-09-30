@@ -37,6 +37,7 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import time
 
 HERE = pathlib.Path(__file__).resolve().parent
 LABS = HERE.parent
@@ -61,11 +62,15 @@ OFF_TOPIC = "Which competitor sells cheaper docks?"
 DIALOG_TASKS = {"generate_user_intent", "generate_next_steps", "generate_bot_message", "general"}
 BARE_CFG, GUARDED_CFG = "m05/configs/desk_eval.yml", "m05/configs/desk_eval_guarded.yml"
 NAT_TIMEOUT = 3600
+LOG = pathlib.Path(__file__).parent / "state" / "check.log"
 
 
 def check(name, ok, detail=""):
     results.append(bool(ok))
     print(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f"\n       -> {detail}" if detail and not ok else ""), flush=True)
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    with LOG.open("a") as f:                       # full record, details for passes too
+        f.write(f"[{'PASS' if ok else 'FAIL'}] {name}" + (f"\n       -> {detail}" if detail else "") + "\n")
 
 
 def nat(*args, env=None) -> subprocess.CompletedProcess:
@@ -258,6 +263,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--aws", action="store_true", help="also check the NIM at NIM_BASE_URL (checks 19-20)")
     a = ap.parse_args()
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    LOG.write_text(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  model: {llm_calls.describe()}\n")
     print(f"NCP-AAI M05 lab check  [model: {llm_calls.describe()}]\n")
     free_checks()
     if a.aws:

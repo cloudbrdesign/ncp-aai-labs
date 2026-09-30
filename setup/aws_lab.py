@@ -99,6 +99,18 @@ def stack_instance():
     return next((o["OutputValue"] for o in outs if o["OutputKey"] == "InstanceId"), None)
 
 
+def gpu_subnets(only_az=None):
+    """[(zone, default subnet)] for the zones in REGION that offer INSTANCE_TYPE."""
+    ec2 = client("ec2")
+    offered = {o["Location"] for o in ec2.describe_instance_type_offerings(
+        LocationType="availability-zone",
+        Filters=[{"Name": "instance-type", "Values": [INSTANCE_TYPE]}])["InstanceTypeOfferings"]}
+    subnets = ec2.describe_subnets(Filters=[{"Name": "default-for-az", "Values": ["true"]}])["Subnets"]
+    pairs = sorted((s["AvailabilityZone"], s["SubnetId"]) for s in subnets
+                   if s["AvailabilityZone"] in offered)
+    return [p for p in pairs if not only_az or p[0] == only_az]
+
+
 def console_checks(instance_id):
     """Return the NCPAAI| lines the instance printed to its console, as a dict."""
     out = client("ec2").get_console_output(InstanceId=instance_id, Latest=True).get("Output", "")
@@ -125,27 +137,45 @@ def cmd_up(args):
     if _stack_exists(cf):
         print(f"Stack {STACK} already exists. Run `python setup/aws_lab.py down` first.")
         return 1
-    cf.create_stack(
-        StackName=STACK, TemplateBody=TEMPLATE.read_text(),
-        Parameters=[{"ParameterKey": "ImageId", "ParameterValue": ami},
-                    {"ParameterKey": "InstanceType", "ParameterValue": INSTANCE_TYPE},
-                    {"ParameterKey": "MaxMinutes", "ParameterValue": str(MAX_MINUTES)},
-                    {"ParameterKey": "Lab", "ParameterValue": args.lab},
-                    {"ParameterKey": "NimImage", "ParameterValue": NIM_IMAGE},
-                    {"ParameterKey": "RootDeviceName", "ParameterValue": root_dev},
-                    {"ParameterKey": "NgcKeyParameter", "ParameterValue": NGC_KEY_PARAM}],
-        Capabilities=["CAPABILITY_IAM"],          # m05 adds an instance role for Session Manager
-        Tags=[{"Key": "Project", "Value": "ncp-aai-labs"}])
-    started = dt.datetime.now()
-    print(f"Creating stack {STACK} ... (the instance terminates itself about "
-          f"{(started + dt.timedelta(minutes=MAX_MINUTES)):%H:%M} at the latest)")
-    try:
-        cf.get_waiter("stack_create_complete").wait(StackName=STACK)
-    except Exception:
-        ev = cf.describe_stack_events(StackName=STACK)["StackEvents"]
-        why = next((e.get("ResourceStatusReason") for e in ev
-                    if e["ResourceStatus"].endswith("FAILED")), "unknown")
-        print(f"Launch failed: {why}\nClean up with: python setup/aws_lab.py down")
+    params = [{"ParameterKey": "ImageId", "ParameterValue": ami},
+              {"ParameterKey": "InstanceType", "ParameterValue": INSTANCE_TYPE},
+              {"ParameterKey": "MaxMinutes", "ParameterValue": str(MAX_MINUTES)},
+              {"ParameterKey": "Lab", "ParameterValue": args.lab},
+              {"ParameterKey": "NimImage", "ParameterValue": NIM_IMAGE},
+              {"ParameterKey": "RootDeviceName", "ParameterValue": root_dev},
+              {"ParameterKey": "NgcKeyParameter", "ParameterValue": NGC_KEY_PARAM}]
+    # GPU capacity differs between Availability Zones. Try each zone that offers the
+    # instance type (default subnets only); on "Insufficient capacity", delete and move on.
+    zones = gpu_subnets(args.az)
+    if not zones:
+        print(f"No default subnet in a zone that offers {INSTANCE_TYPE}. Check your default VPC.")
+        return 1
+    for n, (az, subnet) in enumerate(zones, 1):
+        started = dt.datetime.now()
+        print(f"[{n}/{len(zones)}] Creating stack {STACK} in {az} ... (the instance terminates itself "
+              f"about {(started + dt.timedelta(minutes=MAX_MINUTES)):%H:%M} at the latest)")
+        cf.create_stack(
+            StackName=STACK, TemplateBody=TEMPLATE.read_text(),
+            Parameters=params + [{"ParameterKey": "SubnetId", "ParameterValue": subnet}],
+            Capabilities=["CAPABILITY_IAM"],      # m05 adds an instance role for Session Manager
+            Tags=[{"Key": "Project", "Value": "ncp-aai-labs"}])
+        try:
+            cf.get_waiter("stack_create_complete").wait(StackName=STACK)
+            break
+        except Exception:
+            ev = cf.describe_stack_events(StackName=STACK)["StackEvents"]
+            fails = [e.get("ResourceStatusReason", "") for e in ev
+                     if e["ResourceStatus"] == "CREATE_FAILED"]
+            why = fails[-1] if fails else "unknown"          # the first failure, not the cascade
+            print(f"   failed: {why[:200]}")
+            if "capacity" not in why.lower():
+                print("Clean up with: python setup/aws_lab.py down")
+                return 1
+            cf.delete_stack(StackName=STACK)
+            cf.get_waiter("stack_delete_complete").wait(StackName=STACK)
+    else:
+        print(f"No {INSTANCE_TYPE} capacity in any zone right now. Nothing is left running; "
+              "try again later.")
         return 1
     iid = stack_instance()
     print(f"Instance {iid} ({INSTANCE_TYPE}) is running. Waiting for its checks "
@@ -260,6 +290,7 @@ def main():
     u = sp.add_parser("up")
     u.add_argument("--lab", choices=["none", "m05"], default="none",
                    help="m05 also starts a Llama 3.1 8B NIM (Module 5)")
+    u.add_argument("--az", help="only try this Availability Zone, e.g. us-east-1b")
     t = sp.add_parser("tunnel"); t.add_argument("--port", type=int, default=NIM_PORT)
     sp.add_parser("ngc-key"); sp.add_parser("status"); sp.add_parser("down")
     args = p.parse_args()
