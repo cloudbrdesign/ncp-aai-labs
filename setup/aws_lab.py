@@ -25,6 +25,9 @@ import boto3
 from botocore.exceptions import ClientError
 
 REGION = "us-east-1"                      # course standard (all labs)
+# `up` falls back to these regions, in order, when a region has no GPU capacity or quota.
+# Each region has its own GPU quota: check it with `quota --region <name>`.
+REGIONS = ["us-east-1", "us-east-2", "us-west-2"]
 STACK = "ncp-aai-gpu-lab"
 INSTANCE_TYPE = "g6e.xlarge"              # 1x NVIDIA L40S, 44 GiB GPU memory, 4 vCPUs
 INSTANCE_VCPUS = 4
@@ -43,6 +46,21 @@ NIM_PORT = 8000
 
 def client(name):
     return boto3.client(name, region_name=REGION)
+
+
+def use_region(name):
+    global REGION
+    REGION = name
+
+
+def find_stack_region():
+    """Point REGION at the region that holds the lab stack; return it, or None."""
+    for r in REGIONS:
+        use_region(r)
+        if _stack_exists(client("cloudformation")):
+            return r
+    use_region(REGIONS[0])
+    return None
 
 
 def gpu_quota():
@@ -123,20 +141,20 @@ def console_checks(instance_id):
     return found
 
 
-def cmd_up(args):
-    if gpu_quota() < INSTANCE_VCPUS:
-        print("Your GPU quota is too low. Run `python setup/aws_lab.py quota` first.")
-        return 1
+def _up_in_region(args):
+    """Create the stack in REGION, trying each zone. Returns "ok", "next" (no capacity/quota) or "error"."""
+    quota = gpu_quota()
+    if quota < INSTANCE_VCPUS:
+        print(f"{REGION}: G and VT quota is {quota:g} vCPUs (need {INSTANCE_VCPUS}); skipping. "
+              f"To use it: python setup/aws_lab.py quota --region {REGION} --request {INSTANCE_VCPUS * 2}")
+        return "next"
     ami = client("ssm").get_parameter(Name=DLAMI_SSM)["Parameter"]["Value"]
     image = client("ec2").describe_images(ImageIds=[ami])["Images"][0]
     name, root_dev = image["Name"], image["RootDeviceName"]
-    print(f"AMI: {ami} ({name})")
+    print(f"{REGION}: AMI {ami} ({name})")
     if args.lab == "m05":
         print(f"Module 5: the instance also pulls and starts {NIM_IMAGE} on port {NIM_PORT}.")
     cf = client("cloudformation")
-    if _stack_exists(cf):
-        print(f"Stack {STACK} already exists. Run `python setup/aws_lab.py down` first.")
-        return 1
     params = [{"ParameterKey": "ImageId", "ParameterValue": ami},
               {"ParameterKey": "InstanceType", "ParameterValue": INSTANCE_TYPE},
               {"ParameterKey": "MaxMinutes", "ParameterValue": str(MAX_MINUTES)},
@@ -148,8 +166,8 @@ def cmd_up(args):
     # instance type (default subnets only); on "Insufficient capacity", delete and move on.
     zones = gpu_subnets(args.az)
     if not zones:
-        print(f"No default subnet in a zone that offers {INSTANCE_TYPE}. Check your default VPC.")
-        return 1
+        print(f"{REGION}: no default subnet in a zone that offers {INSTANCE_TYPE}; skipping.")
+        return "next"
     for n, (az, subnet) in enumerate(zones, 1):
         started = dt.datetime.now()
         print(f"[{n}/{len(zones)}] Creating stack {STACK} in {az} ... (the instance terminates itself "
@@ -170,12 +188,30 @@ def cmd_up(args):
             print(f"   failed: {why[:200]}")
             if "capacity" not in why.lower():
                 print("Clean up with: python setup/aws_lab.py down")
-                return 1
+                return "error"
             cf.delete_stack(StackName=STACK)
             cf.get_waiter("stack_delete_complete").wait(StackName=STACK)
     else:
-        print(f"No {INSTANCE_TYPE} capacity in any zone right now. Nothing is left running; "
-              "try again later.")
+        print(f"{REGION}: no {INSTANCE_TYPE} capacity in any zone.")
+        return "next"
+    return "ok"
+
+
+def cmd_up(args):
+    if find_stack_region():
+        print(f"Stack {STACK} already exists in {REGION}. Run `python setup/aws_lab.py down` first.")
+        return 1
+    regions = [args.region] if args.region else REGIONS
+    for region in regions:
+        use_region(region)
+        result = _up_in_region(args)
+        if result == "ok":
+            break
+        if result == "error":
+            return 1
+    else:
+        print(f"No {INSTANCE_TYPE} capacity (or quota) in {', '.join(regions)} right now. "
+              "Nothing is left running; try again later.")
         return 1
     iid = stack_instance()
     print(f"Instance {iid} ({INSTANCE_TYPE}) is running. Waiting for its checks "
@@ -211,6 +247,7 @@ def cmd_up(args):
 
 
 def cmd_status(args):
+    find_stack_region()
     iid = stack_instance()
     if not iid:
         print(f"No stack named {STACK}: nothing is running from this course.")
@@ -226,6 +263,7 @@ def cmd_status(args):
 
 
 def cmd_down(args):
+    find_stack_region()
     cf = client("cloudformation")
     if not stack_instance() and not _stack_exists(cf):
         print("Nothing to delete.")
@@ -250,8 +288,11 @@ def cmd_ngc_key(args):
     if not key:
         print("No key entered; nothing stored.")
         return 1
-    client("ssm").put_parameter(Name=NGC_KEY_PARAM, Value=key, Type="SecureString", Overwrite=True)
-    print(f"Stored as SecureString {NGC_KEY_PARAM} in {REGION}. Only the lab instance's role can read it.")
+    for r in ([args.region] if args.region else REGIONS):     # the instance reads it in its own region
+        use_region(r)
+        client("ssm").put_parameter(Name=NGC_KEY_PARAM, Value=key, Type="SecureString", Overwrite=True)
+        print(f"Stored as SecureString {NGC_KEY_PARAM} in {r}.")
+    print("Only the lab instance's role (and you) can read it.")
     return 0
 
 
@@ -259,6 +300,7 @@ def cmd_tunnel(args):
     """Forward localhost:8000 on this machine to port 8000 on the lab instance (Session Manager)."""
     import shutil
     import subprocess
+    find_stack_region()
     iid = stack_instance()
     if not iid:
         print("No lab instance. Run `python setup/aws_lab.py up --lab m05` first.")
@@ -293,7 +335,11 @@ def main():
     u.add_argument("--az", help="only try this Availability Zone, e.g. us-east-1b")
     t = sp.add_parser("tunnel"); t.add_argument("--port", type=int, default=NIM_PORT)
     sp.add_parser("ngc-key"); sp.add_parser("status"); sp.add_parser("down")
+    p.add_argument("--region", choices=REGIONS,
+                   help=f"one region only (default: {REGIONS[0]}; `up` and `ngc-key` use all of {REGIONS})")
     args = p.parse_args()
+    if args.region:
+        use_region(args.region)
     return {"quota": cmd_quota, "budget": cmd_budget, "up": cmd_up, "ngc-key": cmd_ngc_key,
             "tunnel": cmd_tunnel, "status": cmd_status, "down": cmd_down}[args.cmd](args)
 

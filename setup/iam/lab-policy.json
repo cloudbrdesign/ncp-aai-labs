@@ -12,7 +12,7 @@
         "cloudformation:DescribeStackResources",
         "cloudformation:ListStackResources"
       ],
-      "Resource": "arn:aws:cloudformation:us-east-1:*:stack/ncp-aai-gpu-lab/*"
+      "Resource": "arn:aws:cloudformation:*:*:stack/ncp-aai-gpu-lab/*"
     },
     {
       "Sid": "WhatTheStackCreates",
@@ -40,7 +40,9 @@
       "Condition": {
         "StringEquals": {
           "aws:RequestedRegion": [
-            "us-east-1"
+            "us-east-1",
+            "us-east-2",
+            "us-west-2"
           ]
         }
       }
@@ -99,13 +101,13 @@
         "ssm:GetParameter",
         "ssm:DeleteParameter"
       ],
-      "Resource": "arn:aws:ssm:us-east-1:*:parameter/ncp-aai/*"
+      "Resource": "arn:aws:ssm:*:*:parameter/ncp-aai/*"
     },
     {
       "Sid": "Module5PortForwardToLabInstancesOnly",
       "Effect": "Allow",
       "Action": "ssm:StartSession",
-      "Resource": "arn:aws:ec2:us-east-1:*:instance/*",
+      "Resource": "arn:aws:ec2:*:*:instance/*",
       "Condition": {
         "StringEquals": {
           "ssm:resourceTag/Project": "ncp-aai-labs"
@@ -116,7 +118,7 @@
       "Sid": "Module5PortForwardDocument",
       "Effect": "Allow",
       "Action": "ssm:StartSession",
-      "Resource": "arn:aws:ssm:us-east-1::document/AWS-StartPortForwardingSession"
+      "Resource": "arn:aws:ssm:*::document/AWS-StartPortForwardingSession"
     },
     {
       "Sid": "Module5OwnSessions",

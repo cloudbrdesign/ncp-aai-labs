@@ -304,7 +304,7 @@ streams in more than one chunk, returns JSON in JSON mode, and finds no NIM endp
 Guardrails config loads with the Ollama main and embeddings models; the input rail blocks
 the planted injection (one retry) and passes an order question; an off-topic question gets
 the canned refusal with no dialog LLM call; the output rail blocks the internal note; the
-facts rail blocks the made-up E99 and passes the grounded E42 reply; the guarded desk
+facts rail blocks a made-up fan-failure claim and passes the grounded E42 reply; the guarded desk
 answers the E42 question with a retrieved citation and the three rail calls; `nat validate`
 passes; `nat run` answers A1003; `nat eval` writes the files, `LLM_END` rows and scores; the
 guarded run makes more LLM calls per item than the bare one. `--aws` adds: the NIM is live

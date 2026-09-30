@@ -71,9 +71,15 @@ python setup/aws_lab.py tunnel           # localhost:8000 -> the NIM, through Se
 python setup/aws_lab.py down
 ```
 
+If a zone has no g6e.xlarge capacity, `up` deletes the failed stack and tries the next zone,
+then the next region (us-east-1, then us-east-2, then us-west-2; regions where your G and VT
+quota is below 4 vCPUs are skipped, and each region has its own quota). `--region us-east-2`
+before the command limits it to one region. `status`, `tunnel` and `down` find the stack in
+whichever region it is. `ngc-key` stores the key in all three regions.
+
 The tunnel needs the AWS CLI and the Session Manager plugin on your machine; no inbound port
 is opened. `setup/iam/lab-policy.json` lists the permissions every command here needs
-(us-east-1 only; IAM actions limited to the `/ncp-aai/` path; `ssm:StartSession` only on
+(the three lab regions only; IAM actions limited to the `/ncp-aai/` path; `ssm:StartSession` only on
 instances tagged `Project=ncp-aai-labs` with the port-forwarding document). Attach it (or
 equivalent) to the user or role you run the labs with.
 

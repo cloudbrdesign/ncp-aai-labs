@@ -18,7 +18,7 @@ It speaks two APIs on one port:
 The rules:
   desk tasks    the M4 fake (m04/tests/fake_llm.py): router plan, groundedness grade, draft
   self checks   input: "Yes" (block) for injection phrases; output: "Yes" for internal notes;
-                facts: "no" when the reply names an error code or order ID the evidence lacks
+                facts: "no" when the reply names an error code or order ID the evidence lacks, or a failed part
   JSON mode     {"product": ..., "error_code": ...} read from the question
   tools         a call to the first tool, with the order ID from the question
   embeddings    M4's hashed bag of words (shared words = similar vectors)
@@ -104,7 +104,10 @@ def self_check(prompt: str) -> str | None:
     if '"entails":' in prompt:
         evidence = prompt.split('"evidence":', 1)[1].split('"hypothesis":', 1)[0]
         hypothesis = prompt.split('"hypothesis":', 1)[1].split('"entails":', 1)[0]
-        return "no" if set(CODES.findall(hypothesis)) - set(CODES.findall(evidence)) else "yes"
+        words = lambda t: set(re.findall(r"[a-z]{4,}", t.lower()))
+        unsupported = words(hypothesis) - words(evidence) - {"means", "must", "dock", "that", "your"}
+        return "no" if (set(CODES.findall(hypothesis)) - set(CODES.findall(evidence))
+                        or {"fan", "failed", "replaced"} & (unsupported | set(hypothesis.lower().split()))) else "yes"
     return None
 
 

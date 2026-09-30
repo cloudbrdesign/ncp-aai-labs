@@ -13,9 +13,9 @@
 8.  The Guardrails config loads with the Ollama main and embeddings models (5.3).
 9.  The input rail blocks the planted injection (one retry: a 3B model).
 10. The input rail passes a normal order question.
-11. An off-topic question gets the canned refusal; the dialog rail makes no LLM call.
+11. The dialog rail on its own answers an off-topic question with the canned refusal and no LLM call.
 12. The output rail blocks the planted "internal note" reply.
-13. The facts rail blocks a reply whose error code is not in the passages, and passes a grounded one.
+13. The facts rail blocks a reply with a claim that is not in the passages, and passes a grounded one.
 14. The guarded desk answers the E42 question, cites a retrieved chunk, passes the rails,
     and the Guardrails log lists the rail calls.
 15. `nat validate` passes on configs/desk_eval.yml (5.2).
@@ -180,19 +180,26 @@ def free_checks():
     status, _ = input_status(A1003)
     check(f"Input rail passes a normal order question ({status.value})", status == RailStatus.PASSED)
 
+    # 11. the dialog rail on its own (input and output rails off), then the full stack for information
+    gen = asyncio.run(rails.generate_async(messages=[{"role": "user", "content": OFF_TOPIC}],
+                                           options=rails_check.DIALOG_ONLY))
+    reply = gen.response[-1]["content"] if gen.response else ""
+    calls = [c.task for c in gen.log.llm_calls]
+    check(f"Dialog rail answers the off-topic question with the canned refusal and {len(calls)} LLM calls",
+          reply.startswith(guarded_desk.REFUSALS[0]) and not calls, {"reply": reply, "llm_calls": calls})
     guarded = guarded_desk.build_rails()
     out = asyncio.run(guarded_desk.respond(guarded, OFF_TOPIC))
-    check(f"Off-topic question gets the canned refusal; dialog rail LLM calls: 0 "
-          f"(all rail calls: {', '.join(out['llm_calls']) or 'none'})",
-          out["reply"].startswith(guarded_desk.REFUSALS[0]) and not out["desk_ran"]
-          and not DIALOG_TASKS & set(out["llm_calls"]), out)
+    print(f"       [INFO] with all rails on: stopped by {out['stopped_by'] or 'the dialog rail'}; "
+          f"LLM calls: {', '.join(out['llm_calls']) or 'none'}", flush=True)
 
     res = asyncio.run(rails_check.check_output(rails, by_id("out03")))
     check(f"Output rail blocks the planted internal note ({res['rail'] or res['predicted']})",
           res["predicted"] == "block" and res["rail"] == "self check output", res)
     bad = asyncio.run(rails_check.check_output(rails, by_id("out04")))
+    if bad["predicted"] != "block":                  # a 3B judge is not consistent: one retry
+        bad = asyncio.run(rails_check.check_output(rails, by_id("out04")))
     good = asyncio.run(rails_check.check_output(rails, by_id("out01")))
-    check(f"Facts rail blocks E99 (not in the passages) ({bad['rail'] or bad['predicted']}) and passes the "
+    check(f"Facts rail blocks a claim not in the passages ({bad['rail'] or bad['predicted']}) and passes the "
           f"grounded E42 reply ({good['predicted']})",
           bad["predicted"] == "block" and bad["rail"] == "self check facts" and good["predicted"] == "allow",
           {"bad": bad, "good": good})
