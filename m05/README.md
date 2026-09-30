@@ -304,7 +304,7 @@ streams in more than one chunk, returns JSON in JSON mode, and finds no NIM endp
 Guardrails config loads with the Ollama main and embeddings models; the input rail blocks
 the planted injection (one retry) and passes an order question; an off-topic question gets
 the canned refusal with no dialog LLM call; the output rail blocks the internal note; the
-facts rail blocks a made-up fan-failure claim and passes the grounded E42 reply; the guarded desk
+facts rail blocks a made-up order and passes the grounded E42 reply; the guarded desk
 answers the E42 question with a retrieved citation and the three rail calls; `nat validate`
 passes; `nat run` answers A1003; `nat eval` writes the files, `LLM_END` rows and scores; the
 guarded run makes more LLM calls per item than the bare one. `--aws` adds: the NIM is live
@@ -347,7 +347,11 @@ This lab does not show, and the videos don't say, that:
   serving.
 - Self-check rails on a 3B model are real security. How well they work depends on the model
   following the prompt, and programmable rails add to the safety built into a model, they
-  don't replace it (Module 9 goes further).
+  don't replace it (Module 9 goes further). On the first real run (2026-09-30, llama3.2:3b),
+  `rails_check.py` got 11 of 12 messages and 5 of 6 replies right: the input rail blocked a
+  harmless weather question that the off-topic rail should have answered, and the facts rail
+  answered "Yes." to a reply claiming E42 means a failed fan, which the manual contradicts.
+  It did block the reply about an order the context doesn't contain.
 - The profiler's forecasts or confidence intervals mean much on about a dozen questions at
   concurrency 1.
 - NAT shows per-node timings for a wrapped LangGraph graph (it didn't in our runs).
