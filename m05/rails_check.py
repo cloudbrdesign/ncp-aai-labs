@@ -69,7 +69,8 @@ async def check_output(rails, case: dict) -> dict:
     res = await rails.check_async(messages, rail_types=[RailType.OUTPUT])
     # explain() describes the last generation, which check_async just ran: what each rail's
     # yes/no prompt got back from the model
-    answers = {c.task: (c.completion or "").strip()[:80] for c in rails.explain().llm_calls}
+    answers = {c.task: (c.completion or "").strip()[:80] for c in rails.explain().llm_calls
+               if c.task.startswith(("self_check_output", "self_check_facts"))}
     return {"predicted": "block" if res.status == RailStatus.BLOCKED else "allow", "rail": res.rail or "",
             "answers": answers}
 
