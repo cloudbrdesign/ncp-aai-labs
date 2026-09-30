@@ -367,8 +367,19 @@ This lab does not show, and the videos don't say, that:
 | Mode | Where | Result |
 |---|---|---|
 | Offline self-test (`M05_FAKE_LLM=1`, `--aws` against the fake NIM) | Linux, Python 3.11.15, 2026-09-30 | 20 passed, 0 failed |
-| Free mode (Ollama `llama3.2:3b`, `embeddinggemma`) | to be run on Hudson's Mac | |
-| AWS mode (NIM `nvcr.io/nim/meta/llama-3.1-8b-instruct:2.0.13` on g6e.xlarge) | not yet run | |
+| Free mode (Ollama `llama3.2:3b`, `embeddinggemma`) | macOS (16 GB Mac), 2026-09-30 | 18 passed, 0 failed |
+| AWS mode (NIM `nvcr.io/nim/meta/llama-3.1-8b-instruct:2.0.13`) | g6.xlarge (1x NVIDIA L4, 23034 MiB), us-east-1a, 2026-09-30 | 19 passed, 1 failed (check 20's wording test; fixed after the run) |
+
+The AWS run, as it happened: no g6e.xlarge capacity in any us-east-1 zone that day, so
+`aws_lab.py` fell back to g6.xlarge. The L4 is not on the NIM's verified-GPU list for this
+model. The NGC login worked with a personal NGC key. The image pull took 14 minutes (43.8 GB).
+`list-model-profiles` listed nothing as "runnable" on the L4 at the default context length;
+the FP8 and BF16 vLLM profiles were "compatible but low memory" (FP8 needs more than 27 GB
+per GPU, BF16 more than 33 GB, at the full context), and the NVFP4 profiles were incompatible.
+With `NIM_MAX_MODEL_LEN=8192` the NIM started the FP8 profile (`vllm-fp8-tp1-pp1`,
+`/v1/metadata`: `llama-3.1-8b-instruct:fp8-tool-calling`), was ready 19 minutes after boot and
+used 20962 MiB of GPU memory. Health, models, metadata, chat, streaming, JSON mode and tool
+calls all answered through the Session Manager tunnel. The DLAMI had the SSM agent (3.3.4793.0).
 
 Packages in the self-test venv: nvidia-nat 1.9.0 (with `langchain`, `profiler`),
 nemoguardrails 0.24.1, langchain-core 1.6.5, langchain-ollama 1.1.0, langchain-openai

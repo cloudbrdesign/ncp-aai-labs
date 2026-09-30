@@ -113,7 +113,8 @@ def nat_run(env=None) -> tuple[bool, str, list]:
     """Check 16 (and 20): nat run on the A1003 question. Returns (ok, summary, detail)."""
     p = nat("run", "--config_file", BARE_CFG, "--input", A1003, env=env)
     answer = nat_result(p.stdout + p.stderr)
-    ok = p.returncode == 0 and "A1003" in answer and "processing" in answer.lower()
+    # the order's status is "processing: awaiting stock"; models word it either way
+    ok = p.returncode == 0 and "A1003" in answer and any(w in answer.lower() for w in ("processing", "awaiting stock"))
     return ok, f"\"{A1003}\" -> {answer[:70]!r}", tail(p)
 
 
