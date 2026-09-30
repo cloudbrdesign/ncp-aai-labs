@@ -39,6 +39,10 @@ Parameters:
   SubnetId:
     Type: AWS::EC2::Subnet::Id
     Description: Default subnet in the Availability Zone to try (aws_lab.py picks it)
+  MaxModelLen:
+    Type: Number
+    Default: 0
+    Description: NIM_MAX_MODEL_LEN for GPUs with less memory (0 = the NIM's default)
   NgcKeyParameter:
     Type: String
     Default: /ncp-aai/ngc-api-key
@@ -156,7 +160,9 @@ Resources:
               mkdir -p /opt/nim-cache && chmod 777 /opt/nim-cache
               docker run --rm --gpus=all -e NGC_API_KEY="$key" -v /opt/nim-cache:/opt/nim/.cache ${NimImage} list-model-profiles 2>&1 \
                 | grep -iE "compatible|low.memory|incompatible|vllm-|sglang-|trtllm-" | head -20 | while read -r l; do log "profiles| $l"; done
-              docker run -d --name nim --gpus=all --shm-size=16GB -e NGC_API_KEY="$key" \
+              mml=""; [ "${MaxModelLen}" != "0" ] && mml="-e NIM_MAX_MODEL_LEN=${MaxModelLen}"
+              log "nim_max_model_len=${MaxModelLen}"
+              docker run -d --name nim --gpus=all --shm-size=16GB -e NGC_API_KEY="$key" $mml \
                 -v /opt/nim-cache:/opt/nim/.cache -p 8000:8000 ${NimImage} \
                 --enable-auto-tool-choice --tool-call-parser llama3_json >/dev/null
               for i in $(seq 1 180); do

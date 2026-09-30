@@ -6,6 +6,7 @@
     python setup/aws_lab.py up                    # launch one GPU instance, run checks
     python setup/aws_lab.py ngc-key               # (Module 5) store your NGC key in SSM, typed hidden
     python setup/aws_lab.py up --lab m05          # (Module 5) the same, plus a Llama 3.1 8B NIM
+                                                  #   (g6e.xlarge, else g6.xlarge, else g5.xlarge)
     python setup/aws_lab.py tunnel                # (Module 5) NIM on http://localhost:8000 via Session Manager
     python setup/aws_lab.py status
     python setup/aws_lab.py down                  # delete everything `up` created
@@ -30,6 +31,10 @@ REGION = "us-east-1"                      # course standard (all labs)
 REGIONS = ["us-east-1", "us-east-2", "us-west-2"]
 STACK = "ncp-aai-gpu-lab"
 INSTANCE_TYPE = "g6e.xlarge"              # 1x NVIDIA L40S, 44 GiB GPU memory, 4 vCPUs
+# Module 5 falls back to these when no g6e.xlarge is free. All have 4 vCPUs (same G and VT
+# quota). Their 22 GiB GPUs (L4, A10G) are not on the NIM's verified-GPU list for Llama 3.1 8B,
+# so the NIM gets a shorter context (NIM_MAX_MODEL_LEN) to leave room for the KV cache.
+M05_TYPES = {"g6e.xlarge": 0, "g6.xlarge": 8192, "g5.xlarge": 8192}   # type -> max model length (0 = NIM default)
 INSTANCE_VCPUS = 4
 MAX_MINUTES = 55                          # hard cap, enforced on the instance itself
 BUDGET_NAME = "ncp-aai-labs"
@@ -141,13 +146,18 @@ def console_checks(instance_id):
     return found
 
 
+def use_type(name):
+    global INSTANCE_TYPE
+    INSTANCE_TYPE = name
+
+
 def _up_in_region(args):
     """Create the stack in REGION, trying each zone. Returns "ok", "next" (no capacity/quota) or "error"."""
     quota = gpu_quota()
     if quota < INSTANCE_VCPUS:
         print(f"{REGION}: G and VT quota is {quota:g} vCPUs (need {INSTANCE_VCPUS}); skipping. "
-              f"To use it: python setup/aws_lab.py quota --region {REGION} --request {INSTANCE_VCPUS * 2}")
-        return "next"
+              f"To use it: python setup/aws_lab.py --region {REGION} quota --request {INSTANCE_VCPUS * 2}")
+        return "quota"
     ami = client("ssm").get_parameter(Name=DLAMI_SSM)["Parameter"]["Value"]
     image = client("ec2").describe_images(ImageIds=[ami])["Images"][0]
     name, root_dev = image["Name"], image["RootDeviceName"]
@@ -161,7 +171,8 @@ def _up_in_region(args):
               {"ParameterKey": "Lab", "ParameterValue": args.lab},
               {"ParameterKey": "NimImage", "ParameterValue": NIM_IMAGE},
               {"ParameterKey": "RootDeviceName", "ParameterValue": root_dev},
-              {"ParameterKey": "NgcKeyParameter", "ParameterValue": NGC_KEY_PARAM}]
+              {"ParameterKey": "NgcKeyParameter", "ParameterValue": NGC_KEY_PARAM},
+              {"ParameterKey": "MaxModelLen", "ParameterValue": str(M05_TYPES.get(INSTANCE_TYPE, 0))}]
     # GPU capacity differs between Availability Zones. Try each zone that offers the
     # instance type (default subnets only); on "Insufficient capacity", delete and move on.
     zones = gpu_subnets(args.az)
@@ -202,17 +213,28 @@ def cmd_up(args):
         print(f"Stack {STACK} already exists in {REGION}. Run `python setup/aws_lab.py down` first.")
         return 1
     regions = [args.region] if args.region else REGIONS
+    types = ([args.instance_type] if args.instance_type
+             else list(M05_TYPES) if args.lab == "m05" else [INSTANCE_TYPE])
+    done = False
     for region in regions:
         use_region(region)
-        result = _up_in_region(args)
-        if result == "ok":
+        for itype in types:
+            use_type(itype)
+            result = _up_in_region(args)
+            if result == "error":
+                return 1
+            if result == "ok" or result == "quota":
+                done = result == "ok"
+                break
+        if done:
             break
-        if result == "error":
-            return 1
-    else:
-        print(f"No {INSTANCE_TYPE} capacity (or quota) in {', '.join(regions)} right now. "
+    if not done:
+        print(f"No capacity (or quota) for {', '.join(types)} in {', '.join(regions)} right now. "
               "Nothing is left running; try again later.")
         return 1
+    if INSTANCE_TYPE != "g6e.xlarge" and args.lab == "m05":
+        print(f"Note: {INSTANCE_TYPE} is not on the NIM's verified-GPU list for this model; "
+              f"NIM_MAX_MODEL_LEN={M05_TYPES[INSTANCE_TYPE]}. The README records what NIM chose.")
     iid = stack_instance()
     print(f"Instance {iid} ({INSTANCE_TYPE}) is running. Waiting for its checks "
           "(console output can take several minutes to appear)...")
@@ -333,6 +355,8 @@ def main():
     u.add_argument("--lab", choices=["none", "m05"], default="none",
                    help="m05 also starts a Llama 3.1 8B NIM (Module 5)")
     u.add_argument("--az", help="only try this Availability Zone, e.g. us-east-1b")
+    u.add_argument("--instance-type", choices=list(M05_TYPES),
+                   help="only this type (default: g6e.xlarge; with --lab m05 it falls back to g6.xlarge, then g5.xlarge)")
     t = sp.add_parser("tunnel"); t.add_argument("--port", type=int, default=NIM_PORT)
     sp.add_parser("ngc-key"); sp.add_parser("status"); sp.add_parser("down")
     p.add_argument("--region", choices=REGIONS,

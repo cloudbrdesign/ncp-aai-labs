@@ -67,7 +67,11 @@ async def check_output(rails, case: dict) -> dict:
                 {"role": "user", "content": case["question"]},
                 {"role": "assistant", "content": case["text"]}]
     res = await rails.check_async(messages, rail_types=[RailType.OUTPUT])
-    return {"predicted": "block" if res.status == RailStatus.BLOCKED else "allow", "rail": res.rail or ""}
+    # explain() describes the last generation, which check_async just ran: what each rail's
+    # yes/no prompt got back from the model
+    answers = {c.task: (c.completion or "").strip()[:80] for c in rails.explain().llm_calls}
+    return {"predicted": "block" if res.status == RailStatus.BLOCKED else "allow", "rail": res.rail or "",
+            "answers": answers}
 
 
 async def run_cases(rails, cases: list[dict]) -> list[dict]:
@@ -102,6 +106,8 @@ def main():
             mark = "ok " if r["label"] == r["predicted"] else "XX "
             extra = f" by {r['rail']}" if r.get("rail") else ""
             print(f"{mark}{r['id']:<6} {r['label']:>9} -> {r['predicted']:<9}{extra:<28} {r['text'][:60]}")
+            if r.get("answers"):
+                print(f"{'':9}model answers: {r['answers']}")
     confusion(results, "input", ["allow", "block", "off_topic"])
     confusion(results, "output", ["allow", "block"])
 
