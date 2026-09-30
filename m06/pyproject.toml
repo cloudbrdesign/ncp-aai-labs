@@ -1,0 +1,20 @@
+# Makes m06/evaluators.py a NeMo Agent Toolkit plugin. NAT finds evaluators through Python
+# entry points (group "nat.components"), so the file has to be installed once:
+#   pip install --no-deps -e m06
+# The editable install maps the one module `evaluators` to this folder; edits take effect
+# without reinstalling.
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ncp-aai-m06-evaluators"
+version = "0.6.0"
+description = "Course lab: two custom evaluators for nat eval (keywords_all, refuses_when_unanswerable)"
+requires-python = ">=3.11"
+
+[project.entry-points."nat.components"]
+ncp_aai_m06 = "evaluators"
+
+[tool.setuptools]
+py-modules = ["evaluators"]

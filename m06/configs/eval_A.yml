@@ -1,0 +1,70 @@
+# NeMo Agent Toolkit 1.9.0: configuration A of the support desk (llama3.2:3b), evaluated.
+# Run from the repo root (the paths below are relative to it):
+#   nat validate --config_file m06/configs/eval_A.yml
+#   nat eval     --config_file m06/configs/eval_A.yml --reps 3                  # -> m06/state/runs/A
+# Configuration B changes one thing, the desk's model, and writes to its own folder:
+#   OLLAMA_MODEL=llama3.2:1b nat eval --config_file m06/configs/eval_A.yml --reps 3 \
+#       --override eval.general.output_dir m06/state/runs/B
+# The desk's model is not set here: the desk takes it from m06/llm_calls.py (OLLAMA_MODEL,
+# DESK_TEMPERATURE, DESK_SEED). The judge below is for the `ragas` evaluator only.
+
+workflow:
+  _type: langgraph_wrapper
+  description: The M4 support desk (SQL for orders, RAG for manuals), as in M5
+  dependencies: [m05]              # added to sys.path, so langsmith_custom can import m05/evals.py
+  graph: m06/desk_app.py:agent     # the M5 desk plus the passage sidecar
+
+llms:
+  judge:                           # a separate local model grades the replies (not the desk's own model)
+    _type: openai                  # Ollama's OpenAI-compatible API
+    base_url: ${M06_JUDGE_BASE_URL:-http://localhost:11434/v1}
+    model_name: ${M06_JUDGE_MODEL:-qwen3:4b}
+    api_key: ollama                # Ollama ignores it; the client needs one
+    temperature: 0.0
+    max_tokens: 32                 # the reply is a tiny JSON object ({"rating": 4}); the NAT docs suggest 8 for a bare rating.
+                                   # langchain-openai 1.6.6 sends this as max_completion_tokens, a field Ollama's
+                                   # /v1 docs don't list, so Ollama may not apply the cap (see README, Notes)
+    reasoning_effort: none         # qwen3: no thinking before the answer (Ollama's /v1 maps "none" to think=false)
+
+eval:
+  general:
+    output_dir: m06/state/runs/A
+    max_concurrency: 1             # one question at a time: the Mac runs one small model
+    dataset:
+      _type: jsonl
+      file_path: m06/data/testset.jsonl
+      filter:                      # check.py narrows this to dev: --override eval.general.dataset.filter.allowlist.field.split dev
+        allowlist:
+          field:
+            split: [dev, test]
+      # NAT 1.9.0 always passes the whole dataset row to evaluators (EvalInputItem.full_dataset_entry);
+      # the docs' `pass_full_entry` key does not exist in this release and would fail validation.
+    profiler:
+      base_metrics: true
+      compute_llm_metrics: true    # per-call latency and tokens
+      csv_exclude_io_text: true    # keep prompts and replies out of the CSV
+      bottleneck_analysis:
+        enable_nested_stack: true
+
+  evaluators:
+    keywords_all:                  # m06/evaluators.py (a registered NAT evaluator)
+      _type: keywords_all
+    refuses_when_unanswerable:     # m06/evaluators.py
+      _type: refuses_when_unanswerable
+    cites_right_manual:            # M5's deterministic checks (m05/evals.py)
+      _type: langsmith_custom
+      evaluator: evals.cites_right_manual
+      extra_fields: {product: product}
+    no_invented_order:
+      _type: langsmith_custom
+      evaluator: evals.no_invented_order
+    answer_accuracy:               # Ragas' NVIDIA metric: reference vs reply, two judge prompts (0/2/4 each)
+      _type: ragas
+      metric: AnswerAccuracy
+      llm_name: judge
+    llm_latency:
+      _type: avg_llm_latency
+    llm_calls:
+      _type: avg_num_llm_calls
+    tokens_per_call:
+      _type: avg_tokens_per_llm_end
