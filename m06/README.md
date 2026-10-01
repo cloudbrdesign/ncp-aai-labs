@@ -484,11 +484,28 @@ Python 3.12.3, nemo-evaluator 0.3.0 from the `v0.3.0` tag (`nel, version 0.3.0`)
 
 ## Runs
 
-To be filled after the first free-mode run on a Mac (Ollama `llama3.2:3b`, `llama3.2:1b`,
-`qwen3:4b`, `embeddinggemma`).
-
 | Run | Where | Result |
 |---|---|---|
-| | | |
+| `python m06/check.py` (free mode) | macOS, 16 GB, Python 3.12 venv, Ollama `llama3.2:3b`, `llama3.2:1b`, `qwen3:4b`, `embeddinggemma`, 2026-10-01 | 18 passed, 0 failed |
+
+What that run measured (dev split, 15 items, 2 reps; small samples, so read them as this
+desk on this Mac, not as general results):
+- Retrieval: hybrid recall@3 0.95 (no product filter).
+- `nat eval` A: 30 item-reps, NAT's Ragas Answer Accuracy mean 0.63; `ragas_eval` Answer
+  Accuracy 0.633, Context Relevance 0.955 (11 items with passages), Response Groundedness 1.0;
+  107 judge calls in 4.24 min, then 0 calls from the cache with the same scores.
+- Judge check on the 24 hand labels: `qwen3:4b` agreed on 23 (1 false pass, 0 false fail);
+  the desk's own `llama3.2:3b` as a self-judge agreed on 14 (0 false pass, 10 false fail).
+  Pairwise with swapped positions: `qwen3:4b` 8/8 position-consistent, `llama3.2:3b` 7/8.
+- A (3B) vs B (1B): pass rate 0.60 vs 0.60, p50 latency 4.44 s vs 7.26 s, about 5.9 LLM calls
+  and 1,900 tokens per item for both; 1 regression, 1 improvement, exact McNemar p = 1.000:
+  INCONCLUSIVE.
+- `DESK_TEMPERATURE=0 DESK_SEED=42`: the same call twice gave the same text; A's verdicts
+  didn't change between reps on any of the 15 dev items.
+- Triage: 6 failed items: wrong_refusal 4 (the bare desk has no refusal path), judge_disagrees
+  1, routing 1; no retrieval misses.
+- The first attempt (before commit d830ddd) asked the Ragas judge for plain JSON mode; qwen3:4b
+  ignored `reasoning_effort: "none"`, thought out loud and returned JSON without `rating`, and
+  each call was retried for hours. Schema-constrained replies fixed it.
 
 The manuals, orders, customers, test questions, labels and feedback are made up for the course.
