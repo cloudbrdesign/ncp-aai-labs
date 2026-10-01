@@ -80,8 +80,10 @@ whichever region it is. `ngc-key` stores the key in all three regions.
 The tunnel needs the AWS CLI and the Session Manager plugin on your machine; no inbound port
 is opened. `setup/iam/lab-policy.json` lists the permissions every command here needs
 (the three lab regions only; IAM actions limited to the `/ncp-aai/` path; `ssm:StartSession` only on
-instances tagged `Project=ncp-aai-labs` with the port-forwarding document). Attach it (or
-equivalent) to the user or role you run the labs with.
+instances tagged `Project=ncp-aai-labs` with the port-forwarding document). It also allows
+`iam:CreateServiceLinkedRole` on AWS service-linked roles only, because AWS needs it when you
+request a quota increase from the command line (`quota --request`). Attach it (or equivalent)
+to the user or role you run the labs with.
 
 ## Tested with
 

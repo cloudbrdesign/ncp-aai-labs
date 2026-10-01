@@ -290,7 +290,7 @@ embedder. You never need it.
 2026-09-29, Python 3.11.15: pymilvus 2.6.9, milvus-lite 3.2.1, langchain-text-splitters
 1.1.2, ollama 0.6.2 (Python client), langgraph 1.2.12, langgraph-checkpoint-sqlite 3.1.1,
 langchain-core 1.6.5, nvidia-nat 1.9.0, pydantic 2.13.5. Checked with the offline
-self-test on Linux; the run with Ollama `llama3.2:3b` and `embeddinggemma` on a 16 GB Mac
-comes next.
+self-test on Linux, then on a 16 GB Mac with Ollama `llama3.2:3b` and `embeddinggemma`
+on 2026-09-30: `check.py` 21 passed, 0 failed, twice.
 
 The manuals, orders and customers are made up for the course.

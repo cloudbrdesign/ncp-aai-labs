@@ -15,6 +15,12 @@
       "Resource": "arn:aws:cloudformation:*:*:stack/ncp-aai-gpu-lab/*"
     },
     {
+      "Sid": "QuotaRequestsFromTheCli",
+      "Effect": "Allow",
+      "Action": "iam:CreateServiceLinkedRole",
+      "Resource": "arn:aws:iam::*:role/aws-service-role/*"
+    },
+    {
       "Sid": "WhatTheStackCreates",
       "Effect": "Allow",
       "Action": [
