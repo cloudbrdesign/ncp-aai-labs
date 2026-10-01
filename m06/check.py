@@ -106,20 +106,36 @@ def models_answer() -> bool:
     client = llm_calls.judge_client()
     replies = {}
     try:
-        for model in dict.fromkeys(DESK_MODELS + [llm_calls.judge_model()]):
+        judge = llm_calls.judge_model()
+        for model in DESK_MODELS:
             r = client.chat.completions.create(model=model, messages=[{"role": "user", "content":
-                                               "Reply with the single word OK."}], temperature=0,
-                                               max_tokens=32, **llm_calls.judge_args(model))
+                                               "Reply with the single word OK."}], temperature=0, max_tokens=32)
             replies[model] = (r.choices[0].message.content or "").strip()
+        # The judge is always asked for schema-constrained JSON (as in judge_check and ragas_eval),
+        # so test it the same way: {"word": "OK"} within 64 tokens, no thinking out loud first.
+        r = client.chat.completions.create(model=judge, messages=[{"role": "user", "content":
+                                           'Reply with JSON: {"word": "OK"}'}], temperature=0, max_tokens=64,
+                                           response_format=llm_calls.json_schema_format(
+                                               "word", {"word": {"type": "string"}}, ["word"]),
+                                           **llm_calls.judge_args(judge))
+        try:
+            replies[judge] = str(json.loads(r.choices[0].message.content or "{}").get("word", ""))
+        except ValueError:
+            replies[judge] = (r.choices[0].message.content or "").strip()
         dim = len(llm_calls.embed(["test"])[0])
     except Exception as e:
         check("Models answer", False, f"{type(e).__name__}: {e}. Start Ollama (ollama serve), then ollama pull "
               f"llama3.2:3b, llama3.2:1b, {llm_calls.judge_model()} and embeddinggemma.")
         return False
+    # "OK" (any case, maybe with a full stop) is the only right answer. A long or empty reply means the
+    # model is still thinking out loud: as a judge it would be slow and miss the JSON fields.
+    short = {m: v.strip(" .!\"'").lower() == "ok" for m, v in replies.items()}
     check("Models answer: " + ", ".join(f"{m} {v[:12]!r}" for m, v in replies.items())
-          + f"; {llm_calls.EMBED_MODEL} (dimension {dim})", all(replies.values()) and dim > 0,
-          f"an empty reply means the model spent its tokens elsewhere (thinking?): {replies}")
-    return True
+          + f"; {llm_calls.EMBED_MODEL} (dimension {dim})", all(short.values()) and dim > 0,
+          "a model that doesn't reply just OK is thinking (or the thinking switch isn't honoured): "
+          f"{ {m: v[:80] for m, v in replies.items() if not short[m]} }. "
+          "Try another judge: M06_JUDGE_MODEL=nemotron-mini python m06/check.py")
+    return all(short.values())
 
 
 def main():

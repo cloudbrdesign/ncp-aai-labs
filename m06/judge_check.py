@@ -101,12 +101,18 @@ def parse(text: str, key: str, allowed: set[str]) -> str | None:
     return None
 
 
-def ask(client, model: str, prompt: str, temperature: float, counter: collections.Counter) -> str:
+def ask(client, model: str, prompt: str, temperature: float, counter: collections.Counter,
+        key: str, allowed: list[str]) -> str:
     counter["calls"] += 1
     try:
+        # The reply must fit this schema (Ollama constrains the output to it): the key with one of the
+        # allowed values, plus a short reason. Plain JSON mode ("json_object") lets a small judge
+        # leave the key out, or think out loud first.
         r = client.chat.completions.create(model=model, messages=[{"role": "user", "content": prompt}],
-                                           response_format={"type": "json_object"}, temperature=temperature,
-                                           max_tokens=200, **llm_calls.judge_args(model))
+                                           response_format=llm_calls.json_schema_format(
+                                               "verdict", {key: {"type": "string", "enum": allowed},
+                                                           "reason": {"type": "string"}}, [key, "reason"]),
+                                           temperature=temperature, max_tokens=200, **llm_calls.judge_args(model))
     except Exception as e:
         counter["errors"] += 1
         return f"ERROR {type(e).__name__}: {e}"
@@ -119,7 +125,8 @@ def judge_singles(client, model, singles, reps, temperature, counter) -> dict:
     items = []
     for s in singles:
         prompt = SINGLE.format(question=s["question"], passages=passages_text(s["passages"]), reply=s["reply"])
-        verdicts = [parse(ask(client, model, prompt, temperature, counter), "verdict", {"pass", "fail"})
+        verdicts = [parse(ask(client, model, prompt, temperature, counter, "verdict", ["pass", "fail"]),
+                          "verdict", {"pass", "fail"})
                     for _ in range(reps)]
         got = [v for v in verdicts if v]
         counts = collections.Counter(got)
@@ -142,9 +149,9 @@ def judge_pairs(client, model, pairs, temperature, counter) -> dict:
     for p in pairs:
         text = passages_text(p["passages"])
         first = parse(ask(client, model, PAIR.format(question=p["question"], passages=text, a=p["reply_a"],
-                                                     b=p["reply_b"]), temperature, counter), "better", {"A", "B"})
+                                                     b=p["reply_b"]), temperature, counter, "better", ["A", "B"]), "better", {"A", "B"})
         second = parse(ask(client, model, PAIR.format(question=p["question"], passages=text, a=p["reply_b"],
-                                                      b=p["reply_a"]), temperature, counter), "better", {"A", "B"})
+                                                      b=p["reply_a"]), temperature, counter, "better", ["A", "B"]), "better", {"A", "B"})
         # which underlying reply was chosen: in the swapped order, slot A holds reply b
         pick1 = {"A": "a", "B": "b"}.get(first)
         pick2 = {"A": "b", "B": "a"}.get(second)

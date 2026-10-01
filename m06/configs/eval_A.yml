@@ -24,7 +24,8 @@ llms:
     max_tokens: 32                 # the reply is a tiny JSON object ({"rating": 4}); the NAT docs suggest 8 for a bare rating.
                                    # langchain-openai 1.6.6 sends this as max_completion_tokens, a field Ollama's
                                    # /v1 docs don't list, so Ollama may not apply the cap (see README, Notes)
-    reasoning_effort: none         # qwen3: no thinking before the answer (Ollama's /v1 maps "none" to think=false)
+    reasoning_effort: none         # qwen3: asks for no thinking; some Ollama builds ignore it. NAT's ragas evaluator
+                                   # asks for a json_schema reply, which is what keeps the judge from thinking out loud
 
 eval:
   general:

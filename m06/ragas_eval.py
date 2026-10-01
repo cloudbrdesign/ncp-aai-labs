@@ -21,7 +21,7 @@ text into claims first, so they cost more; they run on the dev split only.
 
 The judge: llm_factory(model, provider="openai", client=AsyncOpenAI(base_url=Ollama /v1)).
 Ragas sends Instructor's JSON mode (response_format json_object) with the schema in the
-prompt. qwen3 gets reasoning_effort "none" (thinking off, see llm_calls.judge_args).
+prompt; ragas_eval.py swaps that for JSON_SCHEMA mode (see judge_llm). qwen3 gets reasoning_effort "none" (see llm_calls.judge_args).
 
 The cache: DiskCacheBackend stores every judge reply under a hash of the prompt and the
 reply schema, so a second run of the same items makes no judge calls. The key does not
@@ -39,6 +39,7 @@ import asyncio
 import json
 import math
 import pathlib
+import os
 import re
 import sys
 import time
@@ -55,6 +56,9 @@ NVIDIA = ["answer_accuracy", "context_relevance", "response_groundedness"]
 DEV_ONLY = ["faithfulness", "context_recall"]
 METRICS = NVIDIA + DEV_ONLY
 
+
+JUDGE_TIMEOUT = float(os.environ.get("M06_JUDGE_TIMEOUT", "120"))   # seconds per judge call
+JUDGE_RETRIES = int(os.environ.get("M06_JUDGE_RETRIES", "1"))      # Instructor retries after a reply that misses the schema
 
 def read_sidecar(run: pathlib.Path) -> list[dict]:
     path = run / "passages.jsonl"
@@ -99,11 +103,18 @@ def judge_llm(model: str, counter: Counter, cache: bool = True, cache_root: path
     import httpx
     from ragas.cache import DiskCacheBackend
     from ragas.llms import llm_factory
-    http = httpx.AsyncClient(timeout=600, event_hooks={"response": [counter.on_response]})
+    import instructor
+    http = httpx.AsyncClient(timeout=JUDGE_TIMEOUT, event_hooks={"response": [counter.on_response]})
     client = llm_calls.judge_client(async_client=True, http_client=http)
     backend = DiskCacheBackend(cache_dir=str(cache_root / re.sub(r"[^A-Za-z0-9_.-]", "_", model))) if cache else None
-    return llm_factory(model, provider="openai", client=client, cache=backend,
-                       temperature=0.0, max_tokens=1024, **llm_calls.judge_args(model))
+    llm = llm_factory(model, provider="openai", client=client, cache=backend, temperature=0.0,
+                      max_tokens=1024, max_retries=JUDGE_RETRIES, **llm_calls.judge_args(model))
+    # llm_factory patches the client in Instructor's JSON mode: the request only says "reply in JSON"
+    # (response_format json_object), and a small local judge then often returns JSON without the
+    # field the metric needs (e.g. no "rating"), which Instructor retries. JSON_SCHEMA mode sends the
+    # metric's schema as response_format json_schema, and Ollama constrains the reply to it.
+    llm.client = instructor.from_openai(client, mode=instructor.Mode.JSON_SCHEMA)
+    return llm
 
 
 def metric_objects(llm) -> dict:

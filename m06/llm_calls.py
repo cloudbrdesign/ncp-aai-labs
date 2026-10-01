@@ -137,6 +137,17 @@ def judge_args(model: str) -> dict:
     return {"reasoning_effort": "none"} if thinks(model) else {}
 
 
+def json_schema_format(name: str, properties: dict, required: list[str]) -> dict:
+    """An OpenAI `response_format` that asks for JSON matching a schema (Ollama enforces it).
+
+    Ollama's /v1 accepts `response_format` and constrains the reply to the schema. For the judge
+    this matters twice: the reply always has the field we parse, and a model that would think out
+    loud first (qwen3:4b, see judge_args) has to start the JSON straight away.
+    """
+    return {"type": "json_schema", "json_schema": {"name": name, "strict": True, "schema": {
+        "type": "object", "properties": properties, "required": required, "additionalProperties": False}}}
+
+
 def judge_client(async_client: bool = False, http_client=None):
     """An OpenAI client for the judge (Ollama ignores the API key, but the client needs one)."""
     from openai import AsyncOpenAI, OpenAI

@@ -168,6 +168,8 @@ def m06_decide(req: dict) -> dict:
         return {"content": json.dumps(judge_verdict(text))}
     if "Task: compare two replies." in text:
         return {"content": json.dumps(judge_pair(text))}
+    if 'Reply with JSON: {"word": "OK"}' in text:      # check 1's judge probe
+        return {"content": json.dumps({"word": "OK"})}
     schema = schema_in(req, text)
     if schema and schema.get("title") not in (None, "Plan", "Grade", "SqlQuery"):
         title = schema.get("title")

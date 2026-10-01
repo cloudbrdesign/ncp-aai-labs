@@ -29,10 +29,16 @@ module to this folder (edits take effect without reinstalling) and adds nothing 
 path. `nat info components -t evaluator` then lists `keywords_all` and
 `refuses_when_unanswerable`.
 
-The judge is `qwen3:4b`, a different model family from the desk, with thinking switched off
-(see Notes). To use another judge, set `M06_JUDGE_MODEL` for every step, for example
-`M06_JUDGE_MODEL=nemotron-mini` after `ollama pull nemotron-mini` (NVIDIA's 4B model, 4,096
-tokens of context). The desk reads the M4 index (`m04/state/manuals.db`) and
+The judge is `qwen3:4b`, a different model family from the desk. Every judge call asks for
+JSON that matches a schema (`response_format: json_schema`), and Ollama constrains the reply to
+it. That keeps the reply parseable, and it also keeps qwen3 from thinking out loud: on the Mac
+run, asking qwen3:4b for "no thinking" (`reasoning_effort: "none"`) was ignored, and a free-text
+reply to "say OK" was 120 tokens of thinking ending in a bare `</think>`, then OK (see Notes).
+To use another judge, set `M06_JUDGE_MODEL` for every step. `nemotron-mini` (NVIDIA's 4B model,
+4,096 tokens of context) was the fallback, but on the same Mac its free-text reply to "Reply with
+the single word OK" was "Sure, that's correct. Is there anything else you need help with?".
+`check.py` stops at check 1 unless the desk models reply just "OK" and the judge returns
+`{"word": "OK"}`. The desk reads the M4 index (`m04/state/manuals.db`) and
 `m04/data/orders.db`; any M6 script builds them if they are missing.
 
 | File | What it is |
@@ -417,11 +423,19 @@ whatever JSON schema Ragas or NAT ask for. It proves plumbing, not quality. You 
   thinking off. Ollama's OpenAI-compatible API takes `reasoning_effort`; for a model with an
   on/off switch, `"none"` requests no thinking. The native API has `think: false` (Python
   client `ollama.chat(..., think=False)`, `ChatOllama(reasoning=False)`). The M6 judge calls
-  send `reasoning_effort: "none"` to qwen3 models only. Note that `setup/llm.py` switches
-  reasoning on for qwen3 when it is the desk's model.
+  send `reasoning_effort: "none"` to qwen3 models only. On the Mac run this was ignored: the
+  current `qwen3:4b` kept thinking, and Ollama returned the thinking inside the answer (ending in
+  a bare `</think>`). Asking for schema-constrained JSON (`json_schema_format` in `llm_calls.py`)
+  is what keeps the judge's replies short and parseable. Note that `setup/llm.py`
+  switches reasoning on for qwen3 when it is the desk's model.
 - Ragas' `llm_factory` with an OpenAI client uses Instructor's JSON mode
   (`response_format: json_object`, the schema in the prompt) with temperature 0.01, top_p 0.1
-  and max_tokens 1024 unless you pass others; `ragas_eval.py` passes temperature 0.
+  and max_tokens 1024 unless you pass others; `ragas_eval.py` passes temperature 0. In JSON mode a
+  small local judge often returned JSON without the metric's field (`rating` missing), and
+  Instructor retried each call three times. `ragas_eval.py` therefore re-patches the client in
+  Instructor's `JSON_SCHEMA` mode (`response_format: json_schema` with the metric's schema, which
+  Ollama enforces), allows one retry (`M06_JUDGE_RETRIES`) and 120 s per call (`M06_JUDGE_TIMEOUT`);
+  a reply that still misses the schema is scored NaN and counted.
 - Ragas' disk cache key leaves out the model name (see step 4).
 - Ragas 0.4.3 warns that importing `IDBasedContextRecall` from `ragas.metrics` is deprecated
   and points to `ragas.metrics.collections`, which doesn't contain it yet.
