@@ -122,8 +122,9 @@ def triage(run_dir: pathlib.Path, say=print) -> dict:
     desk_miss = {i for i, a in assigned.items() if a["bucket"] == "retrieval_miss"}
     s2 = step2_misses()
     if s2 is not None:
-        say(f"[INFO] retrieval_miss items: {', '.join(sorted(desk_miss)) or 'none'}; step 2 (hybrid, k=3, no filter) "
-            f"missed {', '.join(sorted(s2 & set(maj))) or 'none'} of these items")
+        say(f"[INFO] reference chunks missed by the desk's own search (filtered by product): "
+            f"{', '.join(sorted(desk_miss)) or 'none'}; by step 2's hybrid search (k=3, no filter): "
+            f"{', '.join(sorted(s2 & set(maj))) or 'none'}")
     result = {"run": str(run_dir), "items": len(maj), "failed": failed, "assigned": assigned,
               "totals": dict(totals), "fix_first": order, "retrieval_miss": sorted(desk_miss),
               "step2_misses": sorted(s2) if s2 is not None else None}
