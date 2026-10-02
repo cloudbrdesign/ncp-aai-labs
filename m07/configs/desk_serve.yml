@@ -1,0 +1,15 @@
+# NeMo Agent Toolkit 1.9.0: the M6 support desk served as an API (one replica).
+# Run from the repo root (the paths below are relative to it):
+#   nat serve --config_file m07/configs/desk_serve.yml --port 8101
+#   curl -s localhost:8101/health                                   # {"status":"healthy"}
+#   curl -s -X POST localhost:8101/v1/chat -H 'content-type: application/json' \
+#        -d '{"messages":[{"role":"user","content":"Where is order A1003?"}]}'
+# m07/serve_fleet.py starts several of these, each with its own M04_STATE_DIR.
+# The desk's model is not set here: it comes from m06/llm_calls.py (OLLAMA_MODEL, or
+# LLM_PROVIDER=nim with NIM_BASE_URL and NIM_MODEL, as in M5 and in m07/k8s/desk-deployment.yaml).
+
+workflow:
+  _type: langgraph_wrapper
+  description: The M4 support desk (SQL for orders, RAG for manuals), as in M5 and M6
+  dependencies: [m05]
+  graph: m06/desk_app.py:agent

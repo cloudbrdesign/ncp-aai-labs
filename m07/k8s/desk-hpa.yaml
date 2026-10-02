@@ -1,0 +1,28 @@
+# Horizontal Pod Autoscaler for the agent tier (lessons 7.2 and 7.5).
+# CPU is the simplest signal, and a weak one here: an agent pod spends most of a turn waiting
+# for the model, so its CPU stays low while users queue. The load test shows the queue is at the
+# model tier, so scaling the NIMService (or its GPUs) is what raises throughput; this HPA only
+# keeps enough agent pods for the traffic. A request-based metric (requests in flight per pod)
+# needs a metrics adapter and is not set up here.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: desk
+  namespace: desk
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: desk
+  minReplicas: 2                    # never fewer than two: one can fail or be drained
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300   # wait 5 minutes of low load before removing pods

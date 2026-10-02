@@ -1,0 +1,35 @@
+# The model tier: a NIM for an LLM, run by the NVIDIA NIM Operator (lesson 7.2).
+# This is the LLM sample manifest from the NIM Operator documentation ("Managing NIM Services"),
+# with comments added. The Operator turns it into a Deployment, a Service on port 8000 and,
+# by default, a readiness probe on /v1/health/ready.
+# Prerequisites (not in this lab): a GPU cluster with the GPU Operator and the NIM Operator
+# installed, the ngc-secret and ngc-api-secret secrets, and a NIMCache named
+# llama-3-1-8b-instruct that has downloaded the model.
+#   kubectl apply -n nim-service -f nimservice.yaml
+#   kubectl describe nimservices.apps.nvidia.com -n nim-service
+# kubeconform has no schema for this custom resource, so CI skips it (-ignore-missing-schemas);
+# m07/check.py checks its fields instead.
+apiVersion: apps.nvidia.com/v1alpha1
+kind: NIMService
+metadata:
+  name: llama-3-1-8b-instruct
+spec:
+  image:
+    repository: nvcr.io/nim/meta/llama-3.1-8b-instruct
+    tag: "1.3.3"                    # pinned, as in the docs sample
+    pullPolicy: IfNotPresent
+    pullSecrets:
+      - ngc-secret                  # pulls the container from nvcr.io
+  authSecret: ngc-api-secret        # the NGC API key the NIM uses to fetch the model
+  storage:
+    nimCache:
+      name: llama-3-1-8b-instruct   # the NIMCache that holds the downloaded model
+      profile: ''
+  replicas: 1                       # or spec.scale.enabled with spec.scale.hpa (not both)
+  resources:
+    limits:
+      nvidia.com/gpu: 1             # one GPU per pod, scheduled by the GPU Operator's device plugin
+  expose:
+    service:
+      type: ClusterIP
+      port: 8000

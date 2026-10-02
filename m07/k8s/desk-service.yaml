@@ -1,0 +1,20 @@
+# One stable address for the desk pods (lesson 7.2). The Service sends traffic only to pods
+# whose readiness probe passes, and spreads it over them: the job m07/balancer.py does on the
+# laptop. Inside the cluster: http://desk.desk.svc.cluster.local/v1/chat
+# To expose it outside the cluster you would put an Ingress or a load balancer in front
+# (on EKS, the AWS Load Balancer Controller); not part of this lab.
+apiVersion: v1
+kind: Service
+metadata:
+  name: desk
+  namespace: desk
+  labels:
+    app: desk
+spec:
+  type: ClusterIP
+  selector:
+    app: desk
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

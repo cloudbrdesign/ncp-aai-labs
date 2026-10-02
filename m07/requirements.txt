@@ -1,0 +1,2 @@
+-r ../m06/requirements.txt
+PyYAML==6.0.3        # reads the Kubernetes manifests in check.py (came with the toolkit)

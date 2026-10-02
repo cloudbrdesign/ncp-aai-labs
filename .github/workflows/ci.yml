@@ -1,0 +1,85 @@
+# Continuous integration for the course labs (lesson 7.4).
+# On every push and pull request:
+#   compile     every Python file in the repo byte-compiles (catches syntax errors in M1 and M2,
+#               whose checks need live services)
+#   selftest    each module's offline self-test (Modules 3-7): the lab check runs end to end
+#               against a scripted stand-in for the model (MNN_FAKE_LLM=1), so no Ollama, GPU
+#               or API key is needed. It proves the plumbing and the APIs, not answer quality.
+#   manifests   m07/k8s/*.yaml validated against the Kubernetes API schemas with kubeconform
+# A red cross on a commit means one of these failed; the log of the failed step says which check.
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m compileall -q setup m01 m02 m03 m04 m05 m06 m07
+
+  selftest:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - module: m03
+            run: M03_FAKE_LLM=1 python m03/check.py
+          - module: m04
+            run: M04_FAKE_LLM=1 python m04/check.py
+          - module: m05
+            run: M05_FAKE_LLM=1 python m05/check.py --aws
+          - module: m06
+            run: M06_FAKE_LLM=1 python m06/check.py
+          - module: m07
+            run: M07_FAKE_LLM=1 python m07/check.py
+    name: selftest ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: "**/requirements.txt"
+      - name: Install the module's pinned packages
+        run: |
+          python -m pip install -r ${{ matrix.module }}/requirements.txt
+          if [ "${{ matrix.module }}" = "m06" ] || [ "${{ matrix.module }}" = "m07" ]; then
+            python -m pip install --no-deps -e m06     # registers M6's NAT evaluators
+          fi
+      - name: Offline self-test
+        run: ${{ matrix.run }}
+      - name: Keep the logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ matrix.module }}
+          path: |
+            ${{ matrix.module }}/state/*.log
+            ${{ matrix.module }}/state/logs/
+          if-no-files-found: ignore
+
+  manifests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kubeconform v0.7.0 (checksum pinned)
+        run: |
+          curl -sSL -o kc.tgz https://github.com/yannh/kubeconform/releases/download/v0.7.0/kubeconform-linux-amd64.tar.gz
+          echo "c31518ddd122663b3f3aa874cfe8178cb0988de944f29c74a0b9260920d115d3  kc.tgz" | sha256sum -c -
+          tar xzf kc.tgz kubeconform
+      - name: Validate m07/k8s against Kubernetes 1.33 schemas
+        # -ignore-missing-schemas: NIMService is a custom resource with no public schema here;
+        # m07/check.py checks its fields instead
+        run: ./kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.33.0 m07/k8s

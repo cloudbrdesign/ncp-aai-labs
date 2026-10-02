@@ -1,0 +1,81 @@
+# The support desk's agent tier as a Kubernetes Deployment (lesson 7.2). Validated in CI with
+# kubeconform; this lab does not apply it to a cluster. The agent pods need no GPU: they call
+# the model tier (the NIMService in nimservice.yaml) over HTTP, as the laptop replicas call Ollama.
+#
+# Building the image is not part of this lab. It would hold this repo, the Module 0-6 pins and
+# the M4 index, and run the same command as m07/serve_fleet.py. Pin its tag; never `latest`.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: desk
+  namespace: desk
+  labels:
+    app: desk
+spec:
+  replicas: 3                       # the starting count; desk-hpa.yaml takes over from here
+  revisionHistoryLimit: 5           # old ReplicaSets kept for `kubectl rollout undo`
+  selector:
+    matchLabels:
+      app: desk
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0             # never go below the current count during a rollout
+      maxSurge: 1                   # start one new pod at a time; it must pass readiness first
+  template:
+    metadata:
+      labels:
+        app: desk
+        version: "m07-1"            # change with every release, so a rollout is visible
+    spec:
+      terminationGracePeriodSeconds: 60   # lets in-flight turns finish when a pod is stopped
+      topologySpreadConstraints:          # spread replicas over availability zones (lesson 7.5)
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: desk
+      containers:
+        - name: desk
+          image: registry.example.com/cloud-brewery/ncp-aai-desk:m07-1   # placeholder registry; pinned tag
+          command: ["nat", "serve", "--config_file", "m07/configs/desk_serve.yml",
+                    "--host", "0.0.0.0", "--port", "8000"]
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: LLM_PROVIDER    # m05/llm_calls.py: send chat calls to a NIM instead of Ollama
+              value: nim
+            - name: NIM_BASE_URL    # the Service in front of the NIMService (namespace nim-service)
+              value: http://llama-3-1-8b-instruct.nim-service.svc.cluster.local:8000/v1
+            - name: NIM_MODEL
+              value: meta/llama-3.1-8b-instruct
+            - name: OLLAMA_HOST     # the desk's embeddings (embeddinggemma) still come from Ollama;
+              value: http://ollama.desk.svc.cluster.local:11434   # that service is not in these manifests
+          startupProbe:             # nat serve takes a while to start; don't judge it before then
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:           # failing: the pod is taken out of the Service (no new requests)
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 1
+            failureThreshold: 2
+          livenessProbe:            # failing: the kubelet restarts the container
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              memory: 2Gi

@@ -1,0 +1,15 @@
+# PodDisruptionBudget (lesson 7.5): during voluntary disruptions (a node drained for an upgrade,
+# a cluster autoscaler removing a node) at most one desk pod may be down at a time.
+# It does not protect against crashes or a lost node; replicas across zones do that.
+# maxUnavailable rather than minAvailable: with minAvailable equal to the replica count,
+# a node drain could never finish.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: desk
+  namespace: desk
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: desk
