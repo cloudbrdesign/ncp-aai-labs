@@ -222,6 +222,7 @@ def main():
     ap.add_argument("--base-port", type=int, default=BASE_PORT)
     a = ap.parse_args()
     fleet = Fleet(a.replicas, a.base_port)
+    signal.signal(signal.SIGTERM, lambda *_: (_ for _ in ()).throw(KeyboardInterrupt))   # kill PID stops cleanly too
     try:
         fleet.start()
         (STATE / "fleet.json").write_text(json.dumps([{k: r[k] for k in ("name", "port", "url")}
