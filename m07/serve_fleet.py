@@ -44,6 +44,10 @@ BASE_PORT = 8101
 _fake = {"proc": None, "url": None}
 
 
+def say(*a):
+    print(*a, flush=True)          # flushed, so a log file or a pipe shows progress as it happens
+
+
 def fake_mode() -> bool:
     return os.environ.get("M07_FAKE_LLM") == "1"
 
@@ -114,7 +118,7 @@ def child_env(state_dir: pathlib.Path) -> dict:
     return env
 
 
-def ensure_index(say=print) -> None:
+def ensure_index(say=say) -> None:
     """Build the M4 index (m04/state/manuals.db) and orders.db once, as M5 and M6 do."""
     if (M04_STATE / "manuals.db").exists() and (LABS / "m04" / "data" / "orders.db").exists():
         return
@@ -126,7 +130,7 @@ def ensure_index(say=print) -> None:
 class Fleet:
     """N desk replicas: r1 on BASE_PORT, r2 on BASE_PORT+1, ..."""
 
-    def __init__(self, n: int, base_port: int = BASE_PORT, say=print):
+    def __init__(self, n: int, base_port: int = BASE_PORT, say=say):
         self.say = say
         self.replicas = [{"name": f"r{i + 1}", "port": base_port + i, "url": f"http://127.0.0.1:{base_port + i}",
                           "state_dir": STATE / "replicas" / f"r{i + 1}", "proc": None} for i in range(n)]
@@ -227,16 +231,18 @@ def main():
         fleet.start()
         (STATE / "fleet.json").write_text(json.dumps([{k: r[k] for k in ("name", "port", "url")}
                                                       for r in fleet.replicas], indent=1))
-        print("[fleet] up: " + " ".join(fleet.urls()) + "   (Ctrl-C stops them)")
-        print("[fleet] next, in another terminal: python m07/balancer.py --replicas " + ",".join(fleet.urls()))
+        print("[fleet] up: " + " ".join(fleet.urls()) + "   (Ctrl-C stops them)", flush=True)
+        print("[fleet] next, in another terminal: python m07/balancer.py --replicas " + ",".join(fleet.urls()), flush=True)
         while all(r["proc"].poll() is None for r in fleet.replicas):
             time.sleep(1)
-        print("[fleet] a replica exited; stopping the rest")
+        print("[fleet] a replica exited; stopping the rest", flush=True)
     except KeyboardInterrupt:
         pass
     finally:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)     # a second Ctrl-C or kill doesn't cut the clean-up short
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
         fleet.stop()
-        print("[fleet] stopped")
+        print("[fleet] stopped", flush=True)
 
 
 if __name__ == "__main__":
