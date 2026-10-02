@@ -224,8 +224,9 @@ This lab does not show, and the videos don't say, that:
 | Mode | Where | Result |
 |---|---|---|
 | Offline self-test (`M07_FAKE_LLM=1`) | Linux, Python 3.11.15, 2026-10-02 | 15 passed, 0 failed (check 1 is skipped: no Ollama) |
+| CI dry run: fresh clone, fresh venv, the workflow's install steps, then the M3 and M7 self-tests | Linux, Python 3.11.15, 2026-10-02 | M3 18 passed, M7 15 passed (M4 21, M5 20, M6 18 in the M6 venv) |
 
-Packages in the self-test venv: nvidia-nat 1.9.0 (`langchain`, `profiler`), fastapi 0.141.1,
+Packages in the fresh venv: nvidia-nat 1.9.0 (`langchain`, `profiler`), fastapi 0.142.2,
 starlette 1.7.0, uvicorn 0.54.0, httpx 0.28.1, PyYAML 6.0.3, langgraph 1.2.12, pymilvus 2.6.9,
 milvus-lite 3.2.1; kubeconform 0.7.0 (Kubernetes 1.33.0 schemas: 4 valid, 1 skipped).
 
