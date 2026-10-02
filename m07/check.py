@@ -26,7 +26,7 @@
 16. The CI workflow exists and runs the module self-tests and kubeconform (7.4).
 
 It writes m07/state/ (replicas/, logs/, load.csv, load_requests.csv, failover.json, cost.json, check.log).
-Expected time on a 16 GB Mac: about 15 minutes.
+About 7 minutes on a 16 GB Mac (measured 2026-10-02).
 """
 import asyncio
 import json

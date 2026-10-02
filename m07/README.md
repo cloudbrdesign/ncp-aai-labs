@@ -182,7 +182,7 @@ check and up again after a restart; 502/503 when nothing is reachable; the load 
 1 and 3 replicas at concurrency 1 and 4; the 3-vs-1 throughput ratio; the failover drill with
 and without retry; the cost arithmetic on planted numbers and on your load.csv; the manifests
 agree with each other; the CI workflow is there. It writes `m07/state/` and logs to
-`m07/state/check.log` (replica and balancer logs in `m07/state/logs/`).
+`m07/state/check.log` (about 7 minutes on a 16 GB Mac; replica and balancer logs in `m07/state/logs/`).
 
 Small local models are slow; if a check times out, run it again and read the logs.
 
@@ -234,4 +234,24 @@ milvus-lite 3.2.1; kubeconform 0.7.0 (Kubernetes 1.33.0 schemas: 4 valid, 1 skip
 
 | Run | Where | Result |
 |---|---|---|
-| `python m07/check.py` (free mode) | (to fill after the Mac run) | |
+| `python m07/check.py` (free mode) | macOS, 16 GB, Python 3.12 venv, Ollama `llama3.2:3b` + `embeddinggemma`, 2026-10-02 | 16 passed, 0 failed (7 min) |
+
+What the Mac run measured (`python m07/load_test.py`, 8 requests per level, 16 at concurrency 8;
+small samples, so read them as this desk on this Mac):
+
+| Replicas | Concurrency 1 | 2 | 4 | 8 |
+|---|---|---|---|---|
+| 1 | 0.183 req/s, p95 7.4 s | 0.186, p95 14.8 s | 0.183, p95 26.6 s | 0.179, p95 47.8 s |
+| 3 | 0.201 req/s, p95 7.2 s | 0.211, p95 12.1 s | 0.219, p95 21.4 s | 0.198, p95 44.5 s |
+
+- Throughput stays near 0.2 replies per second whatever the concurrency or the replica count
+  (3 replicas: 1.05x to 1.2x of 1), while p95 latency grows about in step with concurrency:
+  the requests queue at the one Ollama. The model tier is the bottleneck.
+- Replicas were healthy 3.6 to 4.1 s after starting.
+- Failover drill (3 replicas, 4 users, 60 s, r2 killed at 15 s, restarted at 25 s): with retry,
+  0 of 15 requests failed (1 retried); without retry, 1 of 15 failed. Both times r2 was marked
+  down 0.02 s after the kill by the request it cut off (passive), and was back 7.4 s and 8.2 s
+  after the restart. In the check, the active health check alone took 2.0 s (2 checks, 1 s apart).
+- cost_calc with a 30 s p95 SLO: 0.186 req/s per unit with 1 replica, 0.219 with 3; for 2 req/s
+  that is 14 + 1 and 12 + 1 units. With a 3 s SLO no level qualifies (best p95 7.2 s): no number
+  of replicas meets it on this model tier.
