@@ -12,7 +12,8 @@ metadata:
   labels:
     app: desk
 spec:
-  replicas: 3                       # the starting count; desk-hpa.yaml takes over from here
+  # no `replicas:` here: desk-hpa.yaml owns the count (2 to 6). Kubernetes advises leaving it out when an
+  # HPA manages a Deployment, because every `kubectl apply` would reset the count to the file's value.
   revisionHistoryLimit: 5           # old ReplicaSets kept for `kubectl rollout undo`
   selector:
     matchLabels:
