@@ -1,0 +1,38 @@
+# Alert rules for the M8 lab (Prometheus evaluates them every 5 s; `for` is how long the condition
+# must hold before the alert fires). The windows are short so the drill shows them within minutes;
+# a production service would use longer ones.
+groups:
+  - name: support-desk
+    rules:
+      - alert: DeskReplicaDown
+        expr: lb_replica_up == 0
+        for: 10s
+        labels: {severity: page}
+        annotations:
+          summary: "Replica {{ $labels.replica }} ({{ $labels.version }}) is out of rotation"
+
+      - alert: DeskHighErrorRate
+        # symptom: the share of requests that did not get a 2xx answer, over the last minute
+        expr: |
+          sum(rate(lb_requests_total{code!~"2.."}[1m])) / sum(rate(lb_requests_total[1m])) > 0.10
+        for: 20s
+        labels: {severity: page}
+        annotations:
+          summary: "{{ $value | humanizePercentage }} of requests failed in the last minute"
+
+      - alert: DeskSlowAnswers
+        # symptom: p95 time to answer, as the client sees it, over the last two minutes
+        expr: |
+          histogram_quantile(0.95, sum by (le) (rate(lb_request_seconds_bucket[2m]))) > 20
+        for: 20s
+        labels: {severity: ticket}
+        annotations:
+          summary: "p95 answer time is {{ $value | humanizeDuration }}"
+
+      - alert: DeskToolErrors
+        # a hint at the cause, next to the symptoms: which tool is failing inside the replicas
+        expr: sum by (tool) (increase(desk_tool_calls_total{status="error"}[2m])) > 0
+        for: 0s
+        labels: {severity: ticket}
+        annotations:
+          summary: "Tool {{ $labels.tool }} failed {{ $value | humanize }} times in 2 minutes"

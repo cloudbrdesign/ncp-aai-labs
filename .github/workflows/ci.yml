@@ -2,10 +2,11 @@
 # On every push and pull request:
 #   compile     every Python file in the repo byte-compiles (catches syntax errors in M1 and M2,
 #               whose checks need live services)
-#   selftest    each module's offline self-test (Modules 3-7): the lab check runs end to end
+#   selftest    each module's offline self-test (Modules 3-8): the lab check runs end to end
 #               against a scripted stand-in for the model (MNN_FAKE_LLM=1), so no Ollama, GPU
 #               or API key is needed. It proves the plumbing and the APIs, not answer quality.
 #   manifests   m07/k8s/*.yaml validated against the Kubernetes API schemas with kubeconform
+#   prometheus  m08's Prometheus config and alert rules checked with promtool (lesson 8.1)
 # A red cross on a commit means one of these failed; the log of the failed step says which check.
 name: ci
 
@@ -25,7 +26,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m compileall -q setup m01 m02 m03 m04 m05 m06 m07
+      - run: python -m compileall -q setup m01 m02 m03 m04 m05 m06 m07 m08
 
   selftest:
     runs-on: ubuntu-24.04
@@ -44,6 +45,8 @@ jobs:
             run: M06_FAKE_LLM=1 python m06/check.py
           - module: m07
             run: M07_FAKE_LLM=1 python m07/check.py
+          - module: m08
+            run: M08_FAKE_LLM=1 python m08/check.py
     name: selftest ${{ matrix.module }}
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +60,7 @@ jobs:
           python -m pip install -r ${{ matrix.module }}/requirements.txt
           # the desk's NAT plugins from Modules 1-3 (lookup_order, the ticket tools, desk_memory)
           python -m pip install -e m01/support_tools -e m02/desk_tools -e m03/desk_memory
-          if [ "${{ matrix.module }}" = "m06" ] || [ "${{ matrix.module }}" = "m07" ]; then
+          if [ "${{ matrix.module }}" = "m06" ] || [ "${{ matrix.module }}" = "m07" ] || [ "${{ matrix.module }}" = "m08" ]; then
             python -m pip install --no-deps -e m06     # registers M6's NAT evaluators
           fi
       - name: Offline self-test
@@ -85,3 +88,15 @@ jobs:
         # -ignore-missing-schemas: NIMService is a custom resource with no public schema here;
         # m07/check.py checks its fields instead
         run: ./kubeconform -strict -summary -ignore-missing-schemas -kubernetes-version 1.33.0 m07/k8s
+
+  prometheus:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install promtool from Prometheus v3.6.0
+        run: |
+          curl -sSL -o prom.tgz https://github.com/prometheus/prometheus/releases/download/v3.6.0/prometheus-3.6.0.linux-amd64.tar.gz
+          echo "2002ef4a55a64161affccd2786c7081d4e3b3a8d08786a98b3bb110971414916  prom.tgz" | sha256sum -c -
+          tar xzf prom.tgz --strip-components=1 prometheus-3.6.0.linux-amd64/promtool
+      - name: Check m08/observability (scrape config, alert rules)
+        run: ./promtool check config m08/observability/prometheus.yml

@@ -1,0 +1,16 @@
+# Prometheus for the M8 lab: scrape the balancer and the three desk replicas every 5 s,
+# and evaluate the alert rules in alerts.yml. m08/observability/run_stack.sh starts it with this file.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+rule_files:
+  - alerts.yml
+
+scrape_configs:
+  - job_name: balancer            # what users see: every request, its status code and time
+    static_configs:
+      - targets: ["127.0.0.1:8100"]
+  - job_name: desk                # inside each replica: turns, model calls, tokens, tools
+    static_configs:
+      - targets: ["127.0.0.1:9101", "127.0.0.1:9102", "127.0.0.1:9103"]

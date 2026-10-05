@@ -1,0 +1,9 @@
+# Grafana provisioning: the lab's Prometheus as the default data source.
+apiVersion: 1
+datasources:
+  - name: Prometheus (M8 lab)
+    uid: m08-prometheus
+    type: prometheus
+    access: proxy
+    url: http://127.0.0.1:9090
+    isDefault: true

@@ -1,0 +1,7 @@
+# Grafana provisioning: load the dashboards in m08/observability/grafana (run_stack.sh sets M08_DASHBOARDS).
+apiVersion: 1
+providers:
+  - name: m08
+    type: file
+    options:
+      path: ${M08_DASHBOARDS}

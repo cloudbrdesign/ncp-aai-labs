@@ -1,0 +1,17 @@
+# NeMo Agent Toolkit 1.9.0: m08/configs/desk_obs.yml without Phoenix: traces go to a file only.
+# The offline check (M08_FAKE_LLM=1) and anyone without Phoenix running use this one
+# (python m08/fleet_obs.py --no-phoenix).
+
+general:
+  telemetry:
+    tracing:
+      file:
+        _type: file
+        output_path: ${M08_TRACE_FILE}
+        project: support-desk
+
+workflow:
+  _type: langgraph_wrapper
+  description: The M6 support desk with metrics, traces and a request log (m08/desk_obs.py)
+  dependencies: [m05]
+  graph: m08/desk_obs.py:agent

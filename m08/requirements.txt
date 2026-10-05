@@ -1,0 +1,6 @@
+# M08 adds metrics and the Phoenix trace exporter to the M07 pins.
+-r ../m07/requirements.txt
+prometheus-client==0.26.0      # the desk's and the balancer's /metrics
+nvidia-nat-phoenix==1.9.0      # NeMo Agent Toolkit's Phoenix telemetry exporter (the file exporter is in nvidia-nat-core)
+# Phoenix itself (the trace viewer) goes in its own venv, see m08/README.md:
+#   python3 -m venv ~/phoenix-venv && ~/phoenix-venv/bin/pip install arize-phoenix==20.19.0

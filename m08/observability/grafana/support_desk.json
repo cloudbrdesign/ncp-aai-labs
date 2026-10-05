@@ -1,0 +1,471 @@
+{
+ "uid": "m08-support-desk",
+ "title": "Support desk (M8)",
+ "tags": [
+  "ncp-aai",
+  "m08"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "refresh": "5s",
+ "time": {
+  "from": "now-15m",
+  "to": "now"
+ },
+ "panels": [
+  {
+   "type": "stat",
+   "title": "Replicas up",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 6,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "sum(lb_replica_up)",
+     "legendFormat": "up"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Firing alerts",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 6,
+    "y": 0,
+    "w": 6,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "count(ALERTS{alertstate=\"firing\"}) or vector(0)",
+     "legendFormat": "firing"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {},
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Error rate (1 min)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 0,
+    "w": 6,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "sum(rate(lb_requests_total{code!~\"2..\"}[1m])) / sum(rate(lb_requests_total[1m]))",
+     "legendFormat": "errors"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "p95 answer time (2 min)",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 18,
+    "y": 0,
+    "w": 6,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(lb_request_seconds_bucket[2m])))",
+     "legendFormat": "p95"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ]
+    },
+    "colorMode": "background",
+    "graphMode": "none"
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "Traffic: requests per second, by version",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "sum by (version) (rate(lb_requests_total[1m]))",
+     "legendFormat": "{{version}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "type": "timeseries",
+   "title": "Errors: share of requests without a 2xx answer, by version",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 4,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "sum by (version) (rate(lb_requests_total{code!~\"2..\"}[1m])) / sum by (version) (rate(lb_requests_total[1m]))",
+     "legendFormat": "{{version}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "type": "timeseries",
+   "title": "Latency: p50 and p95 answer time, by version",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 12,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "histogram_quantile(0.95, sum by (le, version) (rate(lb_request_seconds_bucket[2m])))",
+     "legendFormat": "p95 {{version}}"
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "histogram_quantile(0.50, sum by (le, version) (rate(lb_request_seconds_bucket[2m])))",
+     "legendFormat": "p50 {{version}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "type": "timeseries",
+   "title": "Saturation: busy seconds per second (about the requests in flight), per replica",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 12,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "sum by (instance) (rate(desk_request_seconds_sum[1m]))",
+     "legendFormat": "{{instance}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "type": "timeseries",
+   "title": "Tokens per request, by version",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 20,
+    "w": 8,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "sum by (version) (rate(desk_llm_tokens_total[2m])) / sum by (version) (rate(desk_requests_total[2m]))",
+     "legendFormat": "{{version}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "type": "timeseries",
+   "title": "Model calls per request, by version",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 20,
+    "w": 8,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "sum by (version) (rate(desk_llm_calls_total[2m])) / sum by (version) (rate(desk_requests_total[2m]))",
+     "legendFormat": "{{version}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "type": "timeseries",
+   "title": "Tool calls per second, by tool and result",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 20,
+    "w": 8,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "sum by (tool, status) (rate(desk_tool_calls_total[1m]))",
+     "legendFormat": "{{tool}} {{status}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "reqps"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "type": "timeseries",
+   "title": "p95 time per tool",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 28,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "histogram_quantile(0.95, sum by (le, tool) (rate(desk_tool_seconds_bucket[2m])))",
+     "legendFormat": "{{tool}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {}
+  },
+  {
+   "type": "timeseries",
+   "title": "p95 time per model call, by desk node",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "m08-prometheus"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 28,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "m08-prometheus"
+     },
+     "expr": "histogram_quantile(0.95, sum by (le, workload) (rate(desk_llm_seconds_bucket[2m])))",
+     "legendFormat": "{{workload}}"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {}
+  }
+ ]
+}

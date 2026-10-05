@@ -1,0 +1,26 @@
+# NeMo Agent Toolkit 1.9.0: the M8 desk (the M6 desk with metrics, spans and a request log) as an API,
+# with traces sent to Phoenix and to a file. Run from the repo root:
+#   nat serve --config_file m08/configs/desk_obs.yml --port 8101
+# m08/fleet_obs.py starts three replicas with this file and sets, for each one:
+#   M08_TRACE_FILE    where the file exporter writes (m08/state/traces/rN.jsonl)
+#   PHOENIX_ENDPOINT  Phoenix's OTLP/HTTP traces endpoint (default http://localhost:6006/v1/traces)
+# Phoenix itself: see m08/README.md (phoenix serve, in its own venv; or the Docker command in NAT's docs).
+# configs/desk_obs_file.yml is the same without Phoenix (the offline check uses it).
+
+general:
+  telemetry:
+    tracing:
+      phoenix:
+        _type: phoenix
+        endpoint: ${PHOENIX_ENDPOINT}
+        project: support-desk
+      file:
+        _type: file
+        output_path: ${M08_TRACE_FILE}
+        project: support-desk
+
+workflow:
+  _type: langgraph_wrapper
+  description: The M6 support desk with metrics, traces and a request log (m08/desk_obs.py)
+  dependencies: [m05]
+  graph: m08/desk_obs.py:agent
