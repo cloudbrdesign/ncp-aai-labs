@@ -91,7 +91,7 @@ inside the replicas: tokens and model calls per request, tool calls by result, p
 desk node.
 
 The alert rules (`alerts.yml`): `DeskReplicaDown`, `DeskHighErrorRate` (more than 10% of requests
-without a 2xx in the last minute), `DeskSlowAnswers` (p95 above 30 s over two minutes) and
+without a 2xx in the last minute), `DeskSlowAnswers` (p95 above 20 s over two minutes) and
 `DeskToolErrors` (a hint at the cause). The windows are short so they fire within a minute or two;
 see them at http://127.0.0.1:9090/alerts.
 

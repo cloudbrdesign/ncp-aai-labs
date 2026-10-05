@@ -39,7 +39,28 @@
     }
    ],
    "fieldConfig": {
-    "defaults": {},
+    "defaults": {
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 1
+       },
+       {
+        "color": "green",
+        "value": 3
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
     "overrides": []
    },
    "options": {
@@ -77,7 +98,24 @@
     }
    ],
    "fieldConfig": {
-    "defaults": {},
+    "defaults": {
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 1
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
+    },
     "overrides": []
    },
    "options": {
@@ -116,7 +154,25 @@
    ],
    "fieldConfig": {
     "defaults": {
-     "unit": "percentunit"
+     "unit": "percentunit",
+     "min": 0,
+     "max": 1,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 0.1
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
     },
     "overrides": []
    },
@@ -156,7 +212,23 @@
    ],
    "fieldConfig": {
     "defaults": {
-     "unit": "s"
+     "unit": "s",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "red",
+        "value": 20
+       }
+      ]
+     },
+     "color": {
+      "mode": "thresholds"
+     }
     },
     "overrides": []
    },
@@ -190,7 +262,7 @@
       "type": "prometheus",
       "uid": "m08-prometheus"
      },
-     "expr": "sum by (version) (rate(lb_requests_total[1m]))",
+     "expr": "sum by (version) (rate(lb_requests_total{version!=\"-\"}[1m]))",
      "legendFormat": "{{version}}"
     }
    ],
@@ -222,13 +294,15 @@
       "type": "prometheus",
       "uid": "m08-prometheus"
      },
-     "expr": "sum by (version) (rate(lb_requests_total{code!~\"2..\"}[1m])) / sum by (version) (rate(lb_requests_total[1m]))",
+     "expr": "sum by (version) (rate(lb_requests_total{code!~\"2..\",version!=\"-\"}[1m])) / sum by (version) (rate(lb_requests_total{version!=\"-\"}[1m]))",
      "legendFormat": "{{version}}"
     }
    ],
    "fieldConfig": {
     "defaults": {
-     "unit": "percentunit"
+     "unit": "percentunit",
+     "min": 0,
+     "max": 1
     },
     "overrides": []
    },
@@ -254,7 +328,7 @@
       "type": "prometheus",
       "uid": "m08-prometheus"
      },
-     "expr": "histogram_quantile(0.95, sum by (le, version) (rate(lb_request_seconds_bucket[2m])))",
+     "expr": "histogram_quantile(0.95, sum by (le, version) (rate(lb_request_seconds_bucket{version!=\"-\"}[2m])))",
      "legendFormat": "p95 {{version}}"
     },
     {
@@ -263,7 +337,7 @@
       "type": "prometheus",
       "uid": "m08-prometheus"
      },
-     "expr": "histogram_quantile(0.50, sum by (le, version) (rate(lb_request_seconds_bucket[2m])))",
+     "expr": "histogram_quantile(0.50, sum by (le, version) (rate(lb_request_seconds_bucket{version!=\"-\"}[2m])))",
      "legendFormat": "p50 {{version}}"
     }
    ],
