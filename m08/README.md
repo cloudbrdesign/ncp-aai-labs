@@ -163,7 +163,7 @@ arize-phoenix 20.19.0, nvidia-nat 1.9.0, nvidia-nat-phoenix 1.9.0, prometheus-cl
 | 5 frozen | v7 (llama3.2:3b) 59%, p95 6.1 s; v8 (llama3.2:1b) 48%, p95 5.3 s; 5 regressions, 2 improvements, McNemar p = 0.453 (inconclusive); gate BLOCK (pass rate dropped 11%) |
 | 5 live, canary 25% | v7: 47 requests, 0% errors, p95 14.6 s, 37 of 47 answers pass; v8: 16 requests, 0% errors, p95 13.7 s, 11 of 16 pass |
 | 6 flywheel | 165 distinct logged requests (plan 38, draft 66, critique 61); the 1B against the 3B's answers: plan 0.00 base / 0.38 with examples, draft 0.76 / 0.64, critique 0.62 / 0.25; suggestion for every workload: keep the production model, awaiting human review |
-| 7 probe, 10 min, r2 killed at 120 s | 60 probes, 41 good: availability 68% against 99%, error budget used 3167%; p50 3.5 s, p95 3.8 s. Killing r2 cost no probe (the balancer retried, the fleet restarted it). All 19 bad probes were wrong answers from r3, the v8 replica the gate had blocked: the dashboards stayed green (HTTP 200, no alerts), only the probe, which checks the answer, saw it |
+| 7 probe, 10 min, r2 killed at 120 s | 60 probes, 41 good: availability 68% against 99%, error budget used 3167%; p50 3.5 s, p95 3.8 s. Killing r2 cost no probe (the balancer took it out of rotation and the fleet restarted it). All 19 bad probes were wrong answers from r3, the v8 replica the gate had blocked: the dashboards stayed green (HTTP 200, no alerts), only the probe, which checks the answer, saw it |
 
 The last row is the reason for both checks: metrics count failed requests, not wrong answers, and a
 release the gate blocks has to be taken out of the fleet as well.
