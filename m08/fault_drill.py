@@ -6,7 +6,7 @@
 Three phases, each sending desk questions through the balancer (2 users, closed loop):
   1. baseline   no fault: the numbers to compare with
   2. slow tool  m08/state/faults.json makes manual_search (the RAG tool) wait --slow-s seconds.
-                Users see slow answers; Prometheus' DeskSlowAnswers alert (p95 > 30 s) fires.
+                Users see slow answers; Prometheus' DeskSlowAnswers alert (p95 > 20 s) fires.
   3. failing    the order_status tool raises an error. Order questions fail; DeskHighErrorRate
                 (more than 10% of requests without a 2xx) and DeskToolErrors fire.
 Then the diagnosis: the alerts say what users suffer (slow, failing) but not why. For the slowest
