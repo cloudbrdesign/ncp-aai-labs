@@ -97,7 +97,17 @@ that share `--overlap` characters with their neighbour. Sizes are characters, no
 ```
 
 With `--chunk-size 600` you get 24 chunks and no overlapping pairs: most sections now fit
-in one chunk. The full run embeds the 37 chunks with `embeddinggemma` and writes the
+in one chunk. Overlap only applies between the pieces of a section that had to be cut, and
+the heading split runs first, so a section that fits in one chunk shares nothing with its
+neighbours.
+
+> **Characters here, tokens in the Blueprint.** The RAG Blueprint's defaults (chunk size
+> 512, overlap 150) count tokens: its ingestion splits text with the embedding model's
+> tokenizer. This lab counts characters, and a token is usually several characters of
+> English, so even the 600-character run is well below the Blueprint's default chunk size.
+> Keep the unit in mind when you compare the two.
+
+The full run embeds the 37 chunks with `embeddinggemma` and writes the
 collection `manuals` to `m04/state/manuals.db`:
 
 ```
