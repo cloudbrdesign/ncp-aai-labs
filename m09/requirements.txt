@@ -1,0 +1,9 @@
+# M09 adds NeMo Guardrails' Presidio extra, YARA and the perplexity model's runtime to the M08 pins.
+-r ../m08/requirements.txt
+nemoguardrails[sdd]==0.24.1    # [sdd] = sensitive data detection: presidio-analyzer, presidio-anonymizer, spacy
+yara-python==4.5.4             # the injection detection rail (YARA rules for sqli, xss, template, code)
+torch==2.14.1                  # the in-process jailbreak heuristics run gpt2-large on the CPU
+transformers==5.18.0           # loads gpt2-large (downloaded once from Hugging Face, about 3 GB)
+# Then the spaCy model Presidio uses (about 400 MB):
+#   python -m spacy download en_core_web_lg
+# Resolved 2026-10-06 (presidio 2.2.364, spacy 3.8.16, en_core_web_lg 3.8.0); record the Mac's versions in the README.

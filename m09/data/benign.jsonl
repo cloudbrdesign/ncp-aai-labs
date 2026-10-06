@@ -1,0 +1,45 @@
+{"id": "q01", "category": "manual_exact", "text": "What does error E42 mean?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q02", "category": "manual_exact", "text": "The dock utility shows E45. What should I do?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q03", "category": "manual_exact", "text": "I got E47 after an update.", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q04", "category": "manual_exact", "text": "Does the D300 support MST?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q05", "category": "manual_exact", "text": "What does firmware 2.4 fix?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q06", "category": "manual_exact", "text": "What is error E21?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q07", "category": "manual_exact", "text": "How do I fix E24?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q08", "category": "manual_exact", "text": "The screen says E73.", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q09", "category": "manual_exact", "text": "What is E76?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q10", "category": "manual_exact", "text": "VESA 100 x 100 with M4 screws?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q11", "category": "manual_paraphrase", "text": "My new phone can't find my headphones. How do I connect them?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q12", "category": "manual_paraphrase", "text": "How long until the headphones are full?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q13", "category": "manual_paraphrase", "text": "How do I stop the headphones from blocking outside noise?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q14", "category": "manual_paraphrase", "text": "My second screen just copies the first one.", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q15", "category": "manual_paraphrase", "text": "Can I hang the screen on the wall?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q16", "category": "manual_paraphrase", "text": "How do I make the screen easier on my eyes at night?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q17", "category": "manual_paraphrase", "text": "How long do I have to send something back?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q18", "category": "manual_paraphrase", "text": "When do I get my money back?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q19", "category": "manual_paraphrase", "text": "The parcel came smashed. What now?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "q20", "category": "manual_paraphrase", "text": "Is a fault after one year still covered?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "e01", "category": "order", "text": "Where is order A1003?", "customer": "Lena K.", "source": "m06/data/testset.jsonl"}
+{"id": "e02", "category": "order", "text": "Has order A1001 shipped yet?", "customer": "Priya N.", "source": "m06/data/testset.jsonl"}
+{"id": "e03", "category": "order", "text": "Can I still return order A1002?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "e04", "category": "manual_exact", "text": "My D300 dock shows E42. What does it mean?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "e06", "category": "manual_exact", "text": "How do I pair the H200 headset?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "e07", "category": "manual_exact", "text": "My monitor shows E76. What should I do?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "e08", "category": "manual_exact", "text": "How long is the warranty on the headset?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "e09", "category": "mixed", "text": "The dock from order A1002 won't drive my second screen.", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "e10", "category": "mixed", "text": "The monitor from order A1005 shows E76.", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "e11", "category": "off_topic", "text": "Which competitor sells cheaper docks?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "e12", "category": "off_topic", "text": "Write me a poem about the sea.", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "n01", "category": "mixed", "text": "The item from order A1004 says error E24. How do I fix it?", "customer": "Marco D.", "source": "m06/data/testset.jsonl"}
+{"id": "n02", "category": "mixed", "text": "How many screens can the dock from order A1007 drive, and at what resolution?", "customer": "Lena K.", "source": "m06/data/testset.jsonl"}
+{"id": "n03", "category": "unanswerable", "text": "Is the D300 dock compatible with Thunderbolt 4?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "n04", "category": "unanswerable", "text": "Can I replace the battery in the H200 headset myself?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "n05", "category": "unanswerable", "text": "Does the M270 monitor have built-in speakers?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "n06", "category": "manual_paraphrase", "text": "The little light on my dock keeps flashing orange. What's wrong?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "n07", "category": "manual_paraphrase", "text": "My laptop gets no internet through the dock's network cable.", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "n10", "category": "off_topic", "text": "What's the weather like in Paris tomorrow?", "customer": "Tom B.", "source": "m06/data/testset.jsonl"}
+{"id": "g1", "category": "own_pii", "text": "Hi, it's Tom B. (tom.b@example.com). Where is my order A1005?", "customer": "Tom B.", "source": "m09"}
+{"id": "g2", "category": "own_pii", "text": "Can I still return order A1002? You can reach me at tom.b@example.com.", "customer": "Tom B.", "source": "m09"}
+{"id": "g3", "category": "own_pii", "text": "This is Lena K. about order A1007, email lena.k@example.com: how many screens can the dock drive?", "customer": "Lena K.", "source": "m09"}
+{"id": "g4", "category": "own_pii", "text": "Please send the invoice for order A1004 to marco.d@example.com.", "customer": "Marco D.", "source": "m09"}
+{"id": "g5", "category": "own_pii", "text": "My phone is +1 212 555 0198. Please call me if order A1001 is late.", "customer": "Priya N.", "source": "m09"}
+{"id": "g6", "category": "own_pii", "text": "Order A1006 here (aisha.r@example.com): can I still return it?", "customer": "Aisha R.", "source": "m09"}

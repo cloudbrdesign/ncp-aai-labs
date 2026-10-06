@@ -1,0 +1,89 @@
+# NeMo Guardrails 0.24.1 configuration for the M9 support desk (Colang 1.0): every layer, local by default.
+#
+# rails/layers.py reads this file and builds the layer subsets L1 to L4 (and the --hosted variant) from it:
+# each layer adds flows to the one before, in the order listed below. Flow names, config keys and
+# defaults were checked against the installed package (nemoguardrails/library/*/flows.v1.co and
+# rail_config.py in 0.24.1).
+#
+#   L1 rules        regex, context bloat, Presidio masking (input, and output last)       no model call
+#   L2 jailbreak    perplexity heuristics (GPT-2 large, in-process) + self check input    1 call to the 3B
+#   L3 content      content safety input and output with the NemoGuard prompt             2 calls
+#                   local: the desk's own 3B as the safety model; --hosted: Nemotron Safety Guard 8B v3
+#   L4 output       YARA injection detection + self check output                          1 call
+#
+# Free mode: every model is on local Ollama. guarded_desk.py replaces the base URLs with the Ollama
+# address from OLLAMA_HOST and hands the rails the desk's own chat model (as M5 did).
+models:
+  - type: main
+    engine: openai                       # Ollama's OpenAI-compatible /v1 (guarded_desk passes the model in)
+    model: llama3.2:3b
+    parameters:
+      base_url: http://localhost:11434/v1
+      api_key: ollama
+  - type: content_safety                 # local L3: the 3B answers the NemoGuard prompt (prompts.yml)
+    engine: openai
+    model: llama3.2:3b
+    parameters:
+      base_url: http://localhost:11434/v1
+      api_key: ollama
+  - type: embeddings                     # not used by these rails; set so Guardrails downloads no FastEmbed model
+    engine: openai
+    model: embeddinggemma
+    parameters:
+      base_url: http://localhost:11434/v1
+      api_key: ollama
+
+rails:
+  input:
+    flows:
+      - regex check input                            # L1: secrets pasted into the chat
+      - context bloat detection on input             # L1: oversized or padded messages (OWASP LLM10)
+      - mask sensitive data on input                 # L1: Presidio, before every rail that sends text to a model
+      - jailbreak detection heuristics               # L2: length/perplexity and prefix/suffix perplexity
+      - self check input                             # L2: the desk policy (prompts.yml), one yes/no call
+      - content safety check input $model=content_safety    # L3
+  output:
+    flows:
+      - regex check output                           # L1: the canary, secrets, card and SSN formats
+      - content safety check output $model=content_safety   # L3
+      - injection detection                          # L4: YARA rules on the reply (sqli, xss, template, code)
+      - self check output                            # L4: the desk policy for replies
+      - mask sensitive data on output                # L1, run last: names and contact data of anyone
+
+  config:
+    regex_detection:
+      input:
+        patterns:
+          - "\\bsk-[A-Za-z0-9]{20,}"                  # API-key shapes
+          - "-----BEGIN [A-Z ]*PRIVATE KEY-----"
+          - "(?i)\\bpassword\\s*[:=]\\s*\\S+"
+      output:
+        case_insensitive: true
+        patterns:
+          - "CBA-CANARY-7731"                         # the canary planted in the desk's system prompt
+          - "\\b(?:\\d[ -]?){13,16}\\b"               # card-number shapes
+          - "\\b\\d{3}-\\d{2}-\\d{4}\\b"              # US SSN shape
+          - "\\bsk-[A-Za-z0-9]{20,}"
+          - "(?i)\\bpassword\\s*[:=]\\s*\\S+"
+
+    context_bloat_detection:
+      max_chars: 4000            # the default is 5000; the desk's real questions are under 300 characters
+      action: reject
+
+    sensitive_data_detection:
+      input:
+        entities: [EMAIL_ADDRESS, CREDIT_CARD, PHONE_NUMBER, US_SSN, IBAN_CODE, IP_ADDRESS]
+        score_threshold: 0.4     # used by the detect flows; in 0.24.1 the mask flows use Presidio's 0.4 default
+      output:
+        entities: [PERSON, EMAIL_ADDRESS, CREDIT_CARD, PHONE_NUMBER, US_SSN, IBAN_CODE, IP_ADDRESS]
+        score_threshold: 0.4
+
+    jailbreak_detection:
+      # no server_endpoint: the heuristics run in-process (GPT-2 large, CPU); the library logs that this is
+      # not recommended for production. escalate.py --drill provider-down points this at a stopped server.
+      length_per_perplexity_threshold: 89.79       # the library default
+      prefix_suffix_perplexity_threshold: 1845.65  # the library default
+
+    injection_detection:
+      injections: [sqli, xss, template, code]
+      action: reject
