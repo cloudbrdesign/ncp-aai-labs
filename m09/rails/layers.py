@@ -8,7 +8,7 @@ Each layer adds flows to the one before it (L4 has everything), in the order con
 
     L0  no rails: the v9 desk as it is
     L1  rules       regex (secrets in, canary/secrets/card/SSN out), context bloat, Presidio masking in and out
-    L2  jailbreak   + perplexity heuristics (in-process) + self check input        (--hosted: NemoGuard JailbreakDetect)
+    L2  jailbreak   + perplexity heuristics (heuristics_server.py) + self check input        (--hosted: NemoGuard JailbreakDetect)
     L3  content     + content safety input and output (local: the 3B with the NemoGuard prompt;
                       --hosted: nvidia/llama-3.1-nemotron-safety-guard-8b-v3 on build.nvidia.com)
     L4  output      + YARA injection detection + self check output
@@ -44,6 +44,24 @@ import time
 import yaml
 
 HERE = pathlib.Path(__file__).resolve().parent
+HEURISTICS_DEFAULT = "http://127.0.0.1:1337/heuristics"   # python m09/heuristics_server.py
+
+
+def heuristics_url() -> str | None:
+    """Where the jailbreak heuristics run: M09_HEURISTICS_URL, else the m09 heuristics server if it answers on
+    127.0.0.1:1337, else None (in-process: GPT-2 loads into this process; on macOS that can crash a process
+    that also holds faiss and scikit-learn, see heuristics_server.py)."""
+    url = os.environ.get("M09_HEURISTICS_URL", "").strip()
+    if url:
+        return url
+    if os.environ.get("M09_FAKE_LLM") == "1":
+        return None
+    import socket
+    try:
+        socket.create_connection(("127.0.0.1", 1337), timeout=0.3).close()
+        return HEURISTICS_DEFAULT
+    except OSError:
+        return None
 LAYERS = ("L0", "L1", "L2", "L3", "L4")
 NAMES = {"L0": "none", "L1": "rules", "L2": "jailbreak", "L3": "content safety", "L4": "output checks"}
 CS_IN = "content safety check input $model=content_safety"
@@ -98,7 +116,7 @@ def config_dict(layer: str = "L4", hosted: bool = False, gliner: bool = False, o
     ollama_url    replaces the models' base URLs (OLLAMA_HOST, as in M5)
     hosted        the NVIDIA models on build.nvidia.com (NVIDIA_API_KEY) for L2 and L3
     fake_url      offline self-test: the hosted endpoints go to the scripted server too
-    heuristics_endpoint  run the jailbreak heuristics as a server at this URL (the provider-down drill)
+    heuristics_endpoint  the jailbreak heuristics server (default: heuristics_url(); the drill passes dead ones)
     """
     cfg = copy.deepcopy(raw_config())
     f = flows(layer, hosted, gliner)
@@ -108,6 +126,7 @@ def config_dict(layer: str = "L4", hosted: bool = False, gliner: bool = False, o
     for m in cfg["models"]:
         m.setdefault("parameters", {})["base_url"] = base
     jb = cfg["rails"]["config"]["jailbreak_detection"]
+    heuristics_endpoint = heuristics_endpoint or heuristics_url()
     if heuristics_endpoint:
         jb["server_endpoint"] = heuristics_endpoint
     if hosted:

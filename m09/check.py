@@ -387,6 +387,9 @@ def main():
     data_checks()
     tickets = subprocess.Popen([sys.executable, str(LABS / "m02" / "ticket_api.py"), "--port", str(port)],
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    heur = None
+    if not FAKE and not os.environ.get("M09_HEURISTICS_URL"):
+        heur = start_heuristics()               # GPT-2 in its own process (macOS: no libomp clash in the desk)
     try:
         import guarded_desk as gd               # starts the fake server in fake mode (child processes reuse it)
         info(f"model: {gd.llm_calls.describe()}")
@@ -397,8 +400,34 @@ def main():
         script_checks()
     finally:
         tickets.terminate()
+        if heur:
+            heur.terminate()
     info(f"total time {time.time() - t0:.0f} s; logs in m09/state/check/ (check.log, scripts.log)")
     return finish()
+
+
+def start_heuristics():
+    """Start m09/heuristics_server.py on a free port and point every script at it (M09_HEURISTICS_URL)."""
+    import httpx
+    hport = free_port()
+    log = open(CHECK_STATE / "heuristics.log", "w")
+    p = subprocess.Popen([sys.executable, str(HERE / "heuristics_server.py"), "--port", str(hport)],
+                         cwd=LABS, stdout=log, stderr=subprocess.STDOUT)
+    url = f"http://127.0.0.1:{hport}"
+    for _ in range(300):
+        if p.poll() is not None:
+            break
+        try:
+            if httpx.get(url + "/", timeout=1).status_code == 200:
+                os.environ["M09_HEURISTICS_URL"] = url + "/heuristics"
+                info(f"jailbreak heuristics: GPT-2 in its own process at {url}/heuristics")
+                return p
+        except httpx.HTTPError:
+            pass
+        time.sleep(1)
+    info("the heuristics server did not start (m09/state/check/heuristics.log); heuristics run in-process")
+    p.terminate()
+    return None
 
 
 def finish():

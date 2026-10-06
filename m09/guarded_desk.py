@@ -264,10 +264,13 @@ class Desk:
             if FAKE and not heuristics_endpoint:
                 self.rails.register_action(fake_heuristics_stub(), name="jailbreak_detection_heuristics")
         self.flows = {k: list(getattr(self.rails.config.rails, k).flows) if self.rails else [] for k in ("input", "output")}
+        jb = self.rails.config.rails.config.jailbreak_detection if self.rails else None
+        self.heuristics = (jb.server_endpoint or "in-process") if jb and "jailbreak detection heuristics" in self.flows["input"] else None
 
     def describe(self) -> str:
         return (f"layer {self.layer}{' (hosted)' if self.hosted else ''}, scope {'on' if self.scope else 'off'}; "
-                f"input {self.flows['input'] or '-'}; output {self.flows['output'] or '-'}")
+                f"input {self.flows['input'] or '-'}; output {self.flows['output'] or '-'}"
+                + (f"; heuristics {self.heuristics}" if self.heuristics else ""))
 
     def _fail(self, res: dict) -> list[str]:
         """Rails that errored or could not reach their detector and whose policy is to fail closed."""

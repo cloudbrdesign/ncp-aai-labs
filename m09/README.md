@@ -30,11 +30,18 @@ The third line downloads gpt2-large (about 3 GB) once: the jailbreak heuristics 
 Without it, the first L2 check downloads it in the middle of a run.
 
 The desk keeps its own index and memory in `m09/state/desk/` (built on the first run, about a minute).
-Everything the lab writes goes to `m09/state/` (not in Git). M2's ticket API takes the escalations:
+Everything the lab writes goes to `m09/state/` (not in Git). Two helpers run in their own terminals: M2's
+ticket API takes the escalations, and the jailbreak heuristics run as NeMo Guardrails' own detection server,
+so GPT-2 large lives in that process and never in the desk's (the Guardrails docs call in-process
+heuristics "not recommended for production"; on macOS it also avoids a crash, see Troubleshooting):
 
 ```bash
 python m02/ticket_api.py                     # second terminal, leave it running (port 8765)
+python m09/heuristics_server.py              # third terminal, leave it running (port 1337)
 ```
+
+The scripts find the heuristics server on port 1337 by themselves (or set `M09_HEURISTICS_URL`); without it
+they fall back to in-process heuristics, and the `[INFO]` line says `heuristics in-process`.
 
 | File | What it is |
 |---|---|
@@ -49,7 +56,8 @@ python m02/ticket_api.py                     # second terminal, leave it running
 | `data/attacks.jsonl` | 36 attacks with deterministic success markers |
 | `data/benign.jsonl` | the 39 non-injection questions of the M6 test set + 6 messages with the customer's own email or order ID |
 | `data/pairs.jsonl` | 10 name-swapped request pairs (fictional names) |
-| `check.py` | the lab check (20 checks) |
+| `heuristics_server.py` | NeMo Guardrails' jailbreak detection server (GPT-2 perplexity heuristics) in its own process, port 1337 |
+| `check.py` | the lab check (20 checks; starts its own heuristics server) |
 | `tests/fake_oai.py` | scripted stand-in for every model (maintainers' offline self-test only) |
 
 ## The layers
@@ -62,7 +70,7 @@ python m09/rails/layers.py                   # prints each layer's flows (--host
 |---|---|---|---|
 | L0 | nothing: the desk as it was (and no identity scope) | 0 | - |
 | L1 rules | `regex check input/output` (secrets in; the canary, secrets, card and SSN shapes out), `context bloat detection on input`, `mask sensitive data on input/output` (Presidio) | 0 | the Mac |
-| L2 jailbreak | `jailbreak detection heuristics` (gpt2-large perplexity, in-process) and `self check input` (the desk policy) | 1 | the Mac (`--hosted`: `jailbreak detection model`, NemoGuard JailbreakDetect) |
+| L2 jailbreak | `jailbreak detection heuristics` (gpt2-large perplexity, `heuristics_server.py`) and `self check input` (the desk policy) | 1 | the Mac (`--hosted`: `jailbreak detection model`, NemoGuard JailbreakDetect) |
 | L3 content safety | `content safety check input/output $model=content_safety` with the NemoGuard prompt and its 23 categories | 2 | the 3B on the Mac (`--hosted`: `nvidia/llama-3.1-nemotron-safety-guard-8b-v3`) |
 | L4 output | `injection detection` (YARA: sqli, xss, template, code; reject) and `self check output` | 1 | the Mac |
 
@@ -241,6 +249,7 @@ en_core_web_lg twice (the rails' analyzer and the audit masker). Peak RSS: to be
 
 | Symptom | Cause and fix |
 |---|---|
+| a script dies right after `Loading weights ... 436/436` (exit code -11, or `0 pairs` in the bias check) | GPT-2 was loaded in-process next to faiss, scikit-learn and Milvus Lite (macOS). Start `python m09/heuristics_server.py`; the scripts use it automatically |
 | `OMP: Error #15 ... libomp.dylib already initialized`, then Python stops | macOS: torch, scikit-learn and faiss each ship libomp. Every m09 script sets `KMP_DUPLICATE_LIB_OK=TRUE` before importing them; if you import them yourself, set it first |
 | the `[INFO] model:` line says `nvidia ...` | `setup/llm.py` picks NVIDIA's API whenever `NVIDIA_API_KEY` is set; m09 sets `LLM_PROVIDER=ollama` so the desk stays on the 3B and the key is used only by `--hosted` |
 | `The en_core_web_lg Spacy model was not found` | `python -m spacy download en_core_web_lg` in the same venv |
