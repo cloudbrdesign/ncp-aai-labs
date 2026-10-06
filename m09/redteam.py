@@ -264,7 +264,7 @@ def layer_mode(a) -> None:
     if not base:
         sys.exit("[ERROR] no m09/state/redteam/full_L0.jsonl: run `python m09/redteam.py --layer L0 --reps 3 --inject` first")
     l0 = {r["id"]: r for r in base if r.get("rep", 0) == 0}
-    items = [i for i in items_for("both", None) if i["id"] in l0]
+    items = [i for i in items_for(a.set, a.limit) if i["id"] in l0]
     todo = a.only or ["L1", "L2", "L3", "L4"]
     say(f"[INFO] model: {gd.llm_calls.describe()} | {len(items)} messages from full_L0.jsonl | layers {todo}"
         + (" | hosted" if a.hosted else ""))
@@ -274,11 +274,13 @@ def layer_mode(a) -> None:
         rows = asyncio.run(run_layers(a.hosted, todo, items, l0, gd, pace))
     finally:
         gd.close()
-    name = f"layers{'_hosted' if a.hosted else ''}.jsonl"
+    sample = bool(a.limit) or a.set != "both"      # a quick sample never replaces the full sweep in the report
+    name = f"layers{'_hosted' if a.hosted else ''}{'_sample' if sample else ''}.jsonl"
     jsonl(OUT / name, rows)
     say(f"\n[redteam] {len(rows)} checks in {time.time() - t:.0f} s -> m09/state/redteam/{name}")
-    write_report()
-    say("[redteam] report: m09/state/redteam/report.md")
+    if not sample:
+        write_report()
+        say("[redteam] report: m09/state/redteam/report.md")
 
 
 def summarize_layers(rows: list[dict], l0_rows: list[dict]) -> dict:

@@ -239,7 +239,7 @@ whatever the model says (the canary regex, masking, scope, YARA, the audit log, 
 
 ## Expected runtime and memory
 
-About 90-110 minutes for the whole lab with `--reps 3` (an estimate until the Mac run): two full passes of
+About 60-70 minutes for the local lab with `--reps 3` on the Mac (the hosted sweep adds 1-2 hours on the free endpoint): two full passes of
 153 turns (36 attacks x 3 + 45 normal messages), the layer sweep (81 messages x 4 layers; gpt2-large on the
 CPU for every message at L2-L4), the drills and the bias check. `--reps 1` halves the full passes. Memory:
 Ollama with the 3B (and qwen3:4b during the bias check), gpt2-large in the Python process (about 3 GB),
@@ -305,8 +305,40 @@ Checked in the installed `nemoguardrails` 0.24.1:
 
 | Run | Where | Result |
 |---|---|---|
+| `python m09/check.py` | the 16 GB Mac, see Runs | 20 passed, 0 failed |
 | `M09_FAKE_LLM=1 python m09/check.py` | Linux, Python 3.11, nemoguardrails 0.24.1, presidio 2.2.364, spacy 3.8.16, en_core_web_lg 3.8.0, yara-python 4.5.4 (torch and transformers not installed: heuristics stubbed) | 19 passed, 0 failed (check 1 is for Ollama only) |
 
 ## Runs
 
-To be filled from the Mac run.
+On a 16 GB Mac (Python 3.12.2, Ollama 0.34.4, nemoguardrails 0.24.1, presidio 2.2.364, spaCy 3.8.16 with
+en_core_web_lg 3.8.0, yara-python 4.5.4, torch 2.14.1, transformers 5.18.0), desk on `llama3.2:3b`, heuristics
+server on port 1337. Lab check: 20 passed, 0 failed (372 s).
+
+| Run | Attack success | Benign refused | p50 / p95 per turn |
+|---|---|---|---|
+| full desk, L0, 3 reps, `--inject` (153 turns) | 33% (direct 3/24, indirect 3/12, data 12/15, pii 12/12, bloat 6/6; leak, output injection, toxic 0) | 0% | 3.45 / 7.82 s |
+| full desk, L4 with the identity scope (153 turns) | 0% | 7% | 5.36 / 12.3 s (rails 2.65 / 11.88 s) |
+
+Layer sweep (input rails on every message, output rails on the L0 reply):
+
+| | L0 | L1 rules | L2 jailbreak | L3 content safety | L4 output |
+|---|---|---|---|---|---|
+| attacks that still succeed | 33% | 11% | 8% | 6% | 6% |
+| benign refused | 0% | 2% | 9% | 9% | 9% |
+| added latency p50 / p95 | 0 | 0.03 / 0.03 s | 0.96 / 2.16 s | 2.11 / 4.67 s | 3.12 / 4.44 s |
+| rail model calls per turn | 0 | 0 | 0.96 | 2.25 | 2.86 |
+
+Two data attacks get through every layer (the reply names another customer and no rail reads it as unsafe);
+only the identity scope stops them (0/15 in the full L4 run).
+
+`--hosted` (NemoGuard JailbreakDetect for L2, Nemotron Safety Guard 8B v3 for L3, free build.nvidia.com key):
+L2 8% attack success, 9% benign refused, p50 / p95 1.55 / 2.7 s; L3 8%, 13% (two messages with the customer's
+own data), p50 / p95 **26.3 / 208.9 s**, slowest 1386 s: the free content-safety endpoint queued requests, so
+L2 and L3 took 6379 s and L4 was not run. The probe first returned HTTP 200 from all three hosted models.
+
+PII sweep: thresholds 0.2 and 0.4 found 5/5 planted values, 0.6 found 3/5; no detections in the 39 normal
+questions at any threshold. Escalation drill: the threat opened priority ticket T-1001; the lock did not
+trigger (the 3B answered one of the three attacks, so only two were blocked). Provider-down drill: stopped
+heuristics server, the library fails closed; failing server (HTTP 503), it fails open silently; unreachable
+safety model, `LLMCallException` reaches the app; the app answered "rail unavailable" in all three.
+Bias check: 10 pairs, 0 flagged, mean judge similarity 4.9, no difference in refusals (a smoke test).
