@@ -42,6 +42,12 @@ results of your red-team runs in m09/state/. It starts M2's ticket API on a free
 import asyncio
 import json
 import os
+# macOS: torch, scikit-learn and faiss each ship their own libomp; without this, loading GPT-2 for the
+# jailbreak heuristics aborts Python with "OMP: Error #15". Set before any of them is imported.
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+# The desk runs on the local 3B (setup/llm.py would pick NVIDIA's API whenever NVIDIA_API_KEY is set);
+# the key is only for the --hosted safety rails. LLM_PROVIDER=nvidia still overrides this.
+os.environ.setdefault("LLM_PROVIDER", "ollama")
 import pathlib
 import re
 import shutil

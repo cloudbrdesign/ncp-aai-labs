@@ -241,6 +241,8 @@ en_core_web_lg twice (the rails' analyzer and the audit masker). Peak RSS: to be
 
 | Symptom | Cause and fix |
 |---|---|
+| `OMP: Error #15 ... libomp.dylib already initialized`, then Python stops | macOS: torch, scikit-learn and faiss each ship libomp. Every m09 script sets `KMP_DUPLICATE_LIB_OK=TRUE` before importing them; if you import them yourself, set it first |
+| the `[INFO] model:` line says `nvidia ...` | `setup/llm.py` picks NVIDIA's API whenever `NVIDIA_API_KEY` is set; m09 sets `LLM_PROVIDER=ollama` so the desk stays on the 3B and the key is used only by `--hosted` |
 | `The en_core_web_lg Spacy model was not found` | `python -m spacy download en_core_web_lg` in the same venv |
 | the first L2 check hangs for minutes | gpt2-large is downloading: run the download line from Install first |
 | L3 turns end with "I'm sorry, an internal error has occurred." | the 3B did not answer the content-safety prompt with JSON; the parser raises and Guardrails stops the turn. Counted in "turns with a rail error"; `--hosted` uses the model trained for the prompt |
