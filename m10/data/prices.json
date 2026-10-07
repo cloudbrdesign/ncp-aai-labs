@@ -1,0 +1,5 @@
+{
+  "note": "Fictional unit prices for the course's made-up shop (Module 10 lab). Not real products or prices.",
+  "currency": "EUR",
+  "unit_price": {"H200": 149.00, "D300": 189.00, "M270": 399.00}
+}

@@ -1,0 +1,241 @@
+<!doctype html>
+<!-- The v10 desk's page (lesson 10.1): chat with feedback buttons and "Why this answer?", and the reviewer
+     queue with approve / edit / reject. Plain HTML and JavaScript, no build step; served by
+     `python m10/oversight_desk.py --serve` at http://127.0.0.1:8110/ . Every action is one call to the
+     desk's HTTP API, so the page and m10/approvals.py do exactly the same things. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support desk v10</title>
+<style>
+  :root { --bg: #f6f7f9; --panel: #fff; --ink: #1d232b; --muted: #5f6b7a; --line: #d9dee5; --accent: #2f6fdb;
+          --ok: #1f8a4c; --warn: #b26a00; --bad: #c0392b; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+  header { display: flex; gap: 16px; align-items: center; padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; }
+  #stopbar { padding: 4px 10px; border-radius: 4px; font-weight: 600; }
+  #stopbar.on { background: var(--bad); color: #fff; }
+  #stopbar.off { background: #e7f3ec; color: var(--ok); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; padding: 16px; }
+  @media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); } }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 12px; min-width: 0; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+  #log { height: 52vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 4px; padding: 8px; background: #fbfcfd; }
+  .msg { margin: 6px 0; padding: 8px 10px; border-radius: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .user { background: #e8f0fd; margin-left: 15%; }
+  .bot { background: #f1f3f5; margin-right: 10%; }
+  .meta { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .why { background: #fff; border: 1px dashed var(--line); padding: 6px 8px; margin-top: 6px; font-size: 13px; }
+  textarea, input, select, button { font: inherit; }
+  input[type=text], textarea, select { border: 1px solid var(--line); border-radius: 4px; padding: 5px 7px; max-width: 100%; }
+  #text { flex: 1; min-width: 0; }
+  button { border: 1px solid var(--line); background: #fff; border-radius: 4px; padding: 4px 10px; cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  button.ok { border-color: var(--ok); color: var(--ok); }
+  button.bad { border-color: var(--bad); color: var(--bad); }
+  .card { border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 4px; padding: 8px 10px; margin-bottom: 10px; }
+  .card.dual { border-left-color: var(--warn); }
+  .card.done { opacity: .8; border-left-color: var(--ok); }
+  .card dl { display: grid; grid-template-columns: 90px minmax(0, 1fr); gap: 2px 8px; margin: 6px 0; font-size: 13px; }
+  .card dt { color: var(--muted); }
+  .card dd { margin: 0; overflow-wrap: anywhere; }
+  .check { color: var(--bad); font-size: 13px; }
+  .err { color: var(--bad); font-size: 13px; }
+  .small { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Support desk <span id="ver">v10</span></h1>
+  <span id="stopbar" class="off">refunds running</span>
+  <button id="stopbtn">Stop refunds</button>
+  <span class="small">Fictional shop, fictional customers: course lab, Module 10.</span>
+</header>
+<main>
+<section>
+  <h2>Chat</h2>
+  <div class="row">
+    <label>Customer <select id="customer">
+      <option>Tom B.</option><option>Marco D.</option><option>Lena K.</option><option>Priya N.</option><option>Aisha R.</option>
+    </select></label>
+    <span class="small">conversation <code id="thread"></code></span>
+    <button id="newthread">New conversation</button>
+  </div>
+  <div id="log"></div>
+  <form id="chatform" class="row" style="margin-top:8px">
+    <input id="text" type="text" placeholder="I want my money back for order A1002." autocomplete="off">
+    <button class="primary" type="submit">Send</button>
+  </form>
+</section>
+<section>
+  <h2>Reviewer queue</h2>
+  <div class="row">
+    <label>Reviewer <input id="reviewer" type="text" placeholder="your name" size="14"></label>
+    <span class="small">most critical first; refreshes every 3 s</span>
+  </div>
+  <div id="queue"><p class="small">No cards waiting.</p></div>
+  <h2>Decided here</h2>
+  <div id="done"></div>
+</section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const REASONS = ["wrong_fact", "wrong_product", "missing_citation", "should_refuse", "should_answer", "other"];
+let thread = "t-" + Math.random().toString(16).slice(2, 10);
+$("thread").textContent = thread;
+try { $("reviewer").value = localStorage.getItem("reviewer") || ""; } catch (e) {}
+$("reviewer").addEventListener("change", () => { try { localStorage.setItem("reviewer", $("reviewer").value); } catch (e) {} });
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v); else e.setAttribute(k, v); }
+  for (const k of kids) e.append(k);
+  return e;
+}
+const money = (x) => "EUR " + Number(x).toFixed(2);
+const waitText = (s) => s < 120 ? Math.round(s) + " s" : (s / 60).toFixed(1) + " min";
+
+// ---- chat ----------------------------------------------------------------------------------------
+function addMsg(who, text, rid) {
+  const m = el("div", { class: "msg " + who }, text);
+  if (who === "bot" && rid) m.append(feedbackRow(rid));
+  $("log").append(m);
+  $("log").scrollTop = $("log").scrollHeight;
+  return m;
+}
+
+function feedbackRow(rid) {
+  const box = el("div", { class: "meta" });
+  const why = el("div", { class: "why", style: "display:none" });
+  const status = el("span", { class: "small" });
+  const send = async (value, extra = {}) => {
+    const r = await fetch("/v1/feedback", { method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ request_id: rid, value, customer: $("customer").value, ...extra }) });
+    const j = await r.json();
+    status.textContent = r.ok ? ` feedback saved (${j.id})` : ` not saved: ${j.error}`;
+  };
+  const form = el("div", { style: "display:none; margin-top:4px" });
+  const reason = el("select", {}, ...REASONS.map((x) => el("option", {}, x)));
+  const comment = el("input", { type: "text", placeholder: "comment (optional)" });
+  const correction = el("input", { type: "text", placeholder: "the correct answer (optional)" });
+  form.append(reason, " ", comment, " ", correction, " ",
+    el("button", { type: "button", onclick: () => send("down", { reason: reason.value, comment: comment.value, correction: correction.value }) }, "Send"));
+  box.append(`request ${rid} `,
+    el("button", { type: "button", onclick: () => send("up") }, "Helpful"), " ",
+    el("button", { type: "button", onclick: () => { form.style.display = "block"; } }, "Not helpful"), " ",
+    el("button", { type: "button", onclick: async () => {
+      if (why.style.display === "block") { why.style.display = "none"; return; }
+      const r = await fetch(`/v1/records/${rid}?view=customer`); const j = await r.json();
+      const w = j.why_this_answer || {};
+      why.replaceChildren(el("b", {}, "Why this answer?"),
+        ...(w.sources || []).map((s) => el("div", {}, `source: ${s.id} (${s.from})`)),
+        ...(w.steps || []).map((s) => el("div", {}, `step: ${s}`)),
+        ...(w.people || []).map((s) => el("div", {}, `person: ${s}`)),
+        el("div", { class: "small" }, w.automated || j.error || ""));
+      why.style.display = "block";
+    } }, "Why this answer?"), status, form, why);
+  return box;
+}
+
+async function pollThread(t, rid) {
+  for (;;) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const j = await (await fetch(`/v1/threads/${t}`)).json();
+    if (j.status !== "pending") { addMsg("bot", j.reply, rid); return; }
+  }
+}
+
+$("chatform").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const text = $("text").value.trim();
+  if (!text) return;
+  $("text").value = "";
+  addMsg("user", `${$("customer").value}: ${text}`);
+  const wait = addMsg("bot", "…");
+  const r = await fetch("/v1/chat", { method: "POST", headers: { "content-type": "application/json",
+    "x-customer": $("customer").value, "x-thread-id": thread }, body: JSON.stringify({ messages: [{ role: "user", content: text }] }) });
+  const j = await r.json();
+  wait.remove();
+  const rid = r.headers.get("x-request-id");
+  addMsg("bot", j.choices[0].message.content, rid);
+  if (r.headers.get("x-pending")) pollThread(thread, rid);
+});
+$("newthread").addEventListener("click", () => { thread = "t-" + Math.random().toString(16).slice(2, 10); $("thread").textContent = thread; $("log").replaceChildren(); });
+
+// ---- reviewer queue ------------------------------------------------------------------------------
+async function decide(card, decision, extra, out) {
+  const reviewer = $("reviewer").value.trim();
+  if (!reviewer) { out.textContent = "Enter your name first: who approved what is part of the record."; return; }
+  const r = await fetch(`/v1/approvals/${card.thread_id}/decision`, { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ decision, reviewer, ...extra }) });
+  const j = await r.json();
+  if (!r.ok) { out.textContent = j.error; return; }
+  const kept = renderCard(card, true);
+  kept.append(el("div", {}, `${decision} by ${j.reviewers.join(" + ")} after ${waitText(j.wait_s)}: ${j.status}`),
+              j.reply ? el("div", { class: "small" }, `customer sees: ${j.reply}`) : "");
+  $("done").prepend(kept);                       // the resolved card stays on screen
+  refresh();
+}
+
+function renderCard(c, done = false) {
+  const o = c.order, a = c.args || c.proposal;
+  const card = el("div", { class: "card" + (c.required_approvals > 1 ? " dual" : "") + (done ? " done" : "") });
+  const dl = el("dl", {},
+    el("dt", {}, "customer"), el("dd", {}, `${c.customer}: “${c.customer_message}”`),
+    el("dt", {}, "order"), el("dd", {}, `${o.order_id}: ${o.qty} x ${o.item} (${o.product}), ${o.status}${o.delivered ? " " + o.delivered : ""}; value ${money(o.order_value)}, refunded so far ${money(o.already_refunded)}`),
+    el("dt", {}, "policy"), el("dd", {}, c.policy),
+    el("dt", {}, "proposal"), el("dd", {}, `refund ${money(a.amount)}: ${a.reason} (by the ${c.proposal.source})`),
+    el("dt", {}, "approvers"), el("dd", {}, `${c.required_approvals} needed` + ((c.approvals_so_far || []).length ? `; so far ${c.approvals_so_far.map((p) => p.reviewer).join(", ")}` : "")),
+    el("dt", {}, "waiting"), el("dd", { "data-created": c.created_ts }, done ? "-" : waitText(c.wait_s)));
+  card.append(el("b", {}, `${c.card_id} · ${o.order_id} · ${money(a.amount)}`), dl, ...(c.checks || []).map((x) => el("div", { class: "check" }, "check: " + x)));
+  if (done) return card;
+  const out = el("div", { class: "err" });
+  const amount = el("input", { type: "number", step: "0.01", min: "0.01", max: String(o.max_amount), value: String(a.amount), style: "width:7em" });
+  const msg = el("input", { type: "text", placeholder: "message to the customer (required to reject)", style: "width:100%" });
+  card.append(el("div", { class: "row" },
+    el("button", { class: "ok", type: "button", onclick: () => decide(c, "approve", {}, out) }, "Approve"),
+    amount,
+    el("button", { type: "button", onclick: () => {
+      const v = Number(amount.value);
+      if (!(v > 0 && v <= o.max_amount)) { out.textContent = `amount must be more than 0 and at most ${money(o.max_amount)}`; return; }
+      decide(c, "edit", { amount: v }, out);
+    } }, "Edit amount"),
+    el("button", { class: "bad", type: "button", onclick: () => {
+      if (!msg.value.trim()) { out.textContent = "a rejection needs a message the customer can read"; return; }
+      decide(c, "reject", { message: msg.value }, out);
+    } }, "Reject")), msg, out);
+  return card;
+}
+
+let typing = false;
+document.addEventListener("focusin", (e) => { typing = !!e.target.closest("#queue"); });
+document.addEventListener("focusout", () => { typing = false; });
+
+async function refresh() {
+  const j = await (await fetch("/v1/approvals")).json();
+  const stop = j.stop;
+  $("stopbar").className = stop ? "on" : "off";
+  $("stopbar").textContent = stop ? `REFUNDS STOPPED: ${stop.reason || ""}` : "refunds running";
+  $("stopbtn").textContent = stop ? "Resume refunds" : "Stop refunds";
+  $("stopbtn").dataset.on = stop ? "1" : "";
+  if (typing) return;                          // don't redraw a card while someone is editing it
+  $("queue").replaceChildren(...(j.cards.length ? j.cards.map((c) => renderCard(c)) : [el("p", { class: "small" }, "No cards waiting.")]));
+}
+$("stopbtn").addEventListener("click", async () => {
+  const on = !$("stopbtn").dataset.on;
+  await fetch("/v1/stop", { method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ on, reason: on ? "stopped from the page" : "", by: $("reviewer").value }) });
+  refresh();
+});
+setInterval(() => {
+  document.querySelectorAll("#queue [data-created]").forEach((d) => { d.textContent = waitText(Date.now() / 1000 - Number(d.dataset.created)); });
+}, 1000);
+setInterval(refresh, 3000);
+refresh();
+fetch("/health").then((r) => r.json()).then((j) => { $("ver").textContent = j.version; });
+</script>
+</body>
+</html>
