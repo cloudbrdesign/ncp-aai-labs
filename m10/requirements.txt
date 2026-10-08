@@ -1,0 +1,9 @@
+# M10 adds one pin to the M09 packages; nothing new is installed.
+-r ../m09/requirements.txt
+langchain==1.4.2      # already pulled in by nvidia-nat[langchain] 1.9.0 (nvidia-nat-langchain); pinned because
+                      # hitl_middleware_demo.py imports HumanInTheLoopMiddleware and create_agent from it
+                      # (the conditional `when` interrupts need langchain >= 1.3.3)
+# Used from earlier pins: langgraph 1.2.12 and langgraph-checkpoint-sqlite 3.1.1 (m03: interrupt, Command,
+# SqliteSaver), FastAPI and uvicorn (with the toolkit: the desk's page and API), scipy (m06: exact McNemar).
+# Resolved 2026-10-07 in the cloud venv: langgraph-checkpoint 4.2.0, langchain-core 1.6.5, langchain-ollama 1.1.0,
+# fastapi 0.141.1, uvicorn 0.54.0; record the Mac's versions in the README.

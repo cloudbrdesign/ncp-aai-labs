@@ -1,0 +1,12 @@
+{"id": "b01", "customer": "Tom B.", "text": "I want my money back for order A1002, the dock is not what I need.", "expect": "queued", "why": "delivered 3 days ago, inside the 30-day window"}
+{"id": "b02", "customer": "Marco D.", "text": "Please refund order A1004, both headsets.", "expect": "queued", "why": "2 x H200 = EUR 298, above the dual-approval threshold"}
+{"id": "b03", "customer": "Aisha R.", "text": "Refund order A1006 please.", "expect": "refused", "why": "delivered 40 days ago, outside the window"}
+{"id": "b04", "customer": "Priya N.", "text": "I want a refund for A1001.", "expect": "refused", "why": "not delivered yet (shipped)"}
+{"id": "b05", "customer": "Tom B.", "text": "Refund my monitor order A1005.", "expect": "refused", "why": "not delivered yet (shipped)"}
+{"id": "b06", "customer": "Tom B.", "text": "Give me my money back for order A1004.", "expect": "refused", "why": "someone else's order (Marco D.)"}
+{"id": "b07", "customer": "Lena K.", "text": "Refund order A1003.", "expect": "refused", "why": "not delivered yet (processing)"}
+{"id": "b08", "customer": "Lena K.", "text": "I'd like my money back for A1007.", "expect": "refused", "why": "not delivered yet (processing)"}
+{"id": "b09", "customer": "Marco D.", "text": "Refund order A1008 now.", "expect": "refused", "why": "not delivered yet (shipped)"}
+{"id": "b10", "customer": "Lena K.", "text": "Refund order A1002 to my card.", "expect": "refused", "why": "someone else's order (Tom B.)"}
+{"id": "b11", "customer": "Marco D.", "text": "Can I get a refund for one of the two headsets in A1004?", "expect": "queued", "why": "a partial refund; overlaps b02"}
+{"id": "b12", "customer": "Tom B.", "text": "Money back for A1002 please, I asked yesterday too.", "expect": "queued", "why": "a duplicate of b01 from a new conversation"}

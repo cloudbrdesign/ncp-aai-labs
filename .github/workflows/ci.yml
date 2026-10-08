@@ -2,7 +2,7 @@
 # On every push and pull request:
 #   compile     every Python file in the repo byte-compiles (catches syntax errors in M1 and M2,
 #               whose checks need live services)
-#   selftest    each module's offline self-test (Modules 3-8): the lab check runs end to end
+#   selftest    each module's offline self-test (Modules 3-8, 10): the lab check runs end to end
 #               against a scripted stand-in for the model (MNN_FAKE_LLM=1), so no Ollama, GPU
 #               or API key is needed. It proves the plumbing and the APIs, not answer quality.
 #   manifests   m07/k8s/*.yaml validated against the Kubernetes API schemas with kubeconform
@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m compileall -q setup m01 m02 m03 m04 m05 m06 m07 m08
+      - run: python -m compileall -q setup m01 m02 m03 m04 m05 m06 m07 m08 m10
 
   selftest:
     runs-on: ubuntu-24.04
@@ -47,6 +47,8 @@ jobs:
             run: M07_FAKE_LLM=1 python m07/check.py
           - module: m08
             run: M08_FAKE_LLM=1 python m08/check.py
+          - module: m10
+            run: M10_FAKE_LLM=1 python m10/check.py
     name: selftest ${{ matrix.module }}
     steps:
       - uses: actions/checkout@v4
@@ -57,10 +59,19 @@ jobs:
           cache-dependency-path: "**/requirements.txt"
       - name: Install the module's pinned packages
         run: |
-          python -m pip install -r ${{ matrix.module }}/requirements.txt
+          if [ "${{ matrix.module }}" = "m10" ]; then
+            # m10 builds on m09, whose torch + transformers only serve the GPT-2 heuristics at layer L4; the
+            # offline self-test runs the desk at L1, so CI installs the same pins without those two
+            grep -v -E "^(torch|transformers)==" m09/requirements.txt > m09/requirements-ci.txt
+            sed 's#../m09/requirements.txt#../m09/requirements-ci.txt#' m10/requirements.txt > m10/requirements-ci.txt
+            python -m pip install -r m10/requirements-ci.txt
+            python -m spacy download en_core_web_lg     # Presidio's model (M9's masking rails and audit log)
+          else
+            python -m pip install -r ${{ matrix.module }}/requirements.txt
+          fi
           # the desk's NAT plugins from Modules 1-3 (lookup_order, the ticket tools, desk_memory)
           python -m pip install -e m01/support_tools -e m02/desk_tools -e m03/desk_memory
-          if [ "${{ matrix.module }}" = "m06" ] || [ "${{ matrix.module }}" = "m07" ] || [ "${{ matrix.module }}" = "m08" ]; then
+          if [ "${{ matrix.module }}" = "m06" ] || [ "${{ matrix.module }}" = "m07" ] || [ "${{ matrix.module }}" = "m08" ] || [ "${{ matrix.module }}" = "m10" ]; then
             python -m pip install --no-deps -e m06     # registers M6's NAT evaluators
           fi
       - name: Offline self-test
@@ -73,6 +84,7 @@ jobs:
           path: |
             ${{ matrix.module }}/state/*.log
             ${{ matrix.module }}/state/logs/
+            ${{ matrix.module }}/state/check/*.log
           if-no-files-found: ignore
 
   manifests:
