@@ -62,3 +62,16 @@ M11_FAKE_LLM=1 python m11/check.py           # offline self-test (CI): scripted 
 Six checks: the map's files exist; the manual answer cites a retrieved chunk and was critiqued; the order tool
 ran in the customer's scope; the injection was blocked (by the input rails at L2 and up); the refund has one
 decided card, reviewer Ana and exactly one ledger row; every turn has a complete decision record.
+
+## Runs
+
+On the Mac, 9 October 2026 (layer L4, Ollama 0.34.4, `llama3.2:3b`; about 2 minutes):
+
+| Conversation | Result | Worth noticing |
+|---|---|---|
+| manual | answered from `D300-troubleshooting-1`, cited; 18.4 s | the first draft failed the critique and was rewritten (plan, draft, critique, draft, critique); the output masking redacted "65 W." as a person's name: a false positive, so the action is `masked` |
+| order | `order_status` in Tom's scope; 14.7 s | the reply promises to "send a notification to the delivery person", which no tool does; the critique, the same 3B, scored it fully supported |
+| injection | stopped by `self check input` before the desk ran; 7.4 s | output rails skipped: nothing reached the model's answer step |
+| refund | card, Ana approves, EUR 189.00 paid once (`R-6953576b`); 8.2 s | the customer view says a colleague approved it, without naming her |
+
+The lab check passed 5 of 6 on that run: it then expected the manual answer to be `answered`; it now accepts `masked`.
