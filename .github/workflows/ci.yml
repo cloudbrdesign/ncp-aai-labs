@@ -73,7 +73,7 @@ jobs:
           fi
           # the desk's NAT plugins from Modules 1-3 (lookup_order, the ticket tools, desk_memory)
           python -m pip install -e m01/support_tools -e m02/desk_tools -e m03/desk_memory
-          if [ "${{ matrix.module }}" = "m06" ] || [ "${{ matrix.module }}" = "m07" ] || [ "${{ matrix.module }}" = "m08" ] || [ "${{ matrix.module }}" = "m10" ]; then
+          if [ "${{ matrix.module }}" = "m06" ] || [ "${{ matrix.module }}" = "m07" ] || [ "${{ matrix.module }}" = "m08" ] || [ "${{ matrix.module }}" = "m10" ] || [ "${{ matrix.module }}" = "m11" ]; then
             python -m pip install --no-deps -e m06     # registers M6's NAT evaluators
           fi
       - name: Offline self-test
