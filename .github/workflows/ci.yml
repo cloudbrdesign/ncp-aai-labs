@@ -2,7 +2,7 @@
 # On every push and pull request:
 #   compile     every Python file in the repo byte-compiles (catches syntax errors in M1 and M2,
 #               whose checks need live services)
-#   selftest    each module's offline self-test (Modules 3-8, 10): the lab check runs end to end
+#   selftest    each module's offline self-test (Modules 3-8, 10, 11): the lab check runs end to end
 #               against a scripted stand-in for the model (MNN_FAKE_LLM=1), so no Ollama, GPU
 #               or API key is needed. It proves the plumbing and the APIs, not answer quality.
 #   manifests   m07/k8s/*.yaml validated against the Kubernetes API schemas with kubeconform
@@ -26,7 +26,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - run: python -m compileall -q setup m01 m02 m03 m04 m05 m06 m07 m08 m10
+      - run: python -m compileall -q setup m01 m02 m03 m04 m05 m06 m07 m08 m10 m11
 
   selftest:
     runs-on: ubuntu-24.04
@@ -49,6 +49,8 @@ jobs:
             run: M08_FAKE_LLM=1 python m08/check.py
           - module: m10
             run: M10_FAKE_LLM=1 python m10/check.py
+          - module: m11
+            run: M11_FAKE_LLM=1 python m11/check.py
     name: selftest ${{ matrix.module }}
     steps:
       - uses: actions/checkout@v4
@@ -59,8 +61,8 @@ jobs:
           cache-dependency-path: "**/requirements.txt"
       - name: Install the module's pinned packages
         run: |
-          if [ "${{ matrix.module }}" = "m10" ]; then
-            # m10 builds on m09, whose torch + transformers only serve the GPT-2 heuristics at layer L4; the
+          if [ "${{ matrix.module }}" = "m10" ] || [ "${{ matrix.module }}" = "m11" ]; then
+            # m10 (and m11, which runs the m10 desk) builds on m09, whose torch + transformers only serve the GPT-2 heuristics at layer L4; the
             # offline self-test runs the desk at L1, so CI installs the same pins without those two
             grep -v -E "^(torch|transformers)==" m09/requirements.txt > m09/requirements-ci.txt
             sed 's#../m09/requirements.txt#../m09/requirements-ci.txt#' m10/requirements.txt > m10/requirements-ci.txt
