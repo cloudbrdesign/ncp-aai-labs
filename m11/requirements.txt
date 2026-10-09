@@ -1,0 +1,1 @@
+-r ../m10/requirements.txt    # the capstone runs the Module 10 desk; no new package
