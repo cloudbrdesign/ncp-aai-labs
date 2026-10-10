@@ -162,14 +162,17 @@ def draft(state: DeskState) -> dict:
 def critique(state: DeskState, runtime: Runtime) -> dict:
     TRACE.append("critique")
     planned = [s["order_id"] for s in state["plan"] if s["order_id"]]
-    known = [ev["order_id"] for ev in state["evidence"] if ev.get("order_id") and not ev.get("error")]
+    # a reply may name an order the customer asked about to say it wasn't found; any other ID is invented
+    known = [ev["order_id"] for ev in state["evidence"]
+             if ev.get("order_id") and (not ev.get("error") or ev["error"] == "no such order")]
     feedback = critic.checks(state["draft"], planned, known, state["profile"])
     facts = "\n".join(handlers.sentence(ev) for ev in state["evidence"])
     score = critic.grade(facts, state["draft"], log=log)
     if score == 0:
         feedback.append("grounding: the reply contradicts the facts; restate only what they say")
     if not feedback:
-        log("[critique] PASS: order IDs answered, none invented, contact preference respected, grounded")
+        g = "grounded" if score is not None else "grounding unverified (grade unavailable)"
+        log(f"[critique] PASS: order IDs answered, none invented, contact preference respected, {g}")
         return {"feedback": []}
     for f in feedback:
         log(f"[critique] FAIL {f}")

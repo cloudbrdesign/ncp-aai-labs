@@ -9,7 +9,9 @@ it searches the M4 index with dense, keyword and hybrid search (m04/retrieve.sea
 product filter) and scores the top k for k = 1, 3, 5, 10:
 
     recall@k     reference chunks in the top k / all reference chunks
-    precision@k  reference chunks in the top k / k       (how much of what we hand the model is on topic)
+    precision@k  reference chunks in the top k / chunks in the top k
+                 (how much of what we hand the model is on topic; the denominator is k whenever
+                 the search returns k chunks, fewer only when it returns fewer)
     hit@k        1 if any reference chunk is in the top k (M4's hit@3 was this at k = 3)
 
 Recall can only grow with k; precision usually falls, because a question has one or two
@@ -17,7 +19,8 @@ right chunks and the rest of the top 10 is noise. The desk hands the model k = 3
 
 Ragas has the same two ideas as ID-based metrics that need no LLM: IDBasedContextRecall and
 IDBasedContextPrecision compare retrieved IDs with reference IDs. They are computed on the
-same IDs as a cross-check (they count each ID once, like this script).
+same IDs as a cross-check (they count each ID once, like this script: a chunk ID retrieved
+twice is counted once, in the numerator and in the denominator).
 
 Writes m06/state/retrieval.csv (mode, k, category: averages) and m06/state/retrieval_items.csv
 (one row per item, mode and k), which triage.py reads.
@@ -44,8 +47,9 @@ ITEMS_OUT = testset.STATE / "retrieval_items.csv"
 
 
 def scores(top: list[str], ref: list[str], k: int) -> dict:
-    got = set(top[:k]) & set(ref)
-    n = len(top[:k])
+    topk = list(dict.fromkeys(top))[:k]    # each chunk ID once, in rank order
+    got = set(topk) & set(ref)
+    n = len(topk)
     return {"recall": len(got) / len(ref), "precision": len(got) / n if n else 0.0, "hit": 1.0 if got else 0.0}
 
 

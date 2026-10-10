@@ -215,7 +215,15 @@ def verdict(regressions: int, improvements: int, p: float | None, n: int) -> str
 
 
 def pareto(a: dict, b: dict, names=("A", "B")) -> str:
-    pa, pb = (a["pass_rate"] or 0, a["p50"] or 0), (b["pass_rate"] or 0, b["p50"] or 0)
+    """Pass rate vs p50 latency. A missing measurement stays unknown (it is not 0 s, which would
+    make an unmeasured configuration look fastest); identical results are a tie."""
+    missing = [f"{n} has no {label}" for n, s in zip(names, (a, b))
+               for label, key in (("pass rate", "pass_rate"), ("latency", "p50")) if s.get(key) is None]
+    if missing:
+        return f"not compared: {'; '.join(missing)} (an unmeasured value is unknown, not zero)"
+    pa, pb = (a["pass_rate"], a["p50"]), (b["pass_rate"], b["p50"])
+    if pa == pb:
+        return f"tie: {names[0]} and {names[1]} have the same pass rate and p50 latency"
 
     def dominates(x, y):   # higher pass rate and lower latency, at least one strictly
         return x[0] >= y[0] and x[1] <= y[1] and (x[0] > y[0] or x[1] < y[1])
@@ -294,6 +302,9 @@ def compare(a_dir: pathlib.Path, b_dir: pathlib.Path, show_flips: bool = False, 
     n_reps = (1 + max(r for _, r in a["rows"]), 1 + max(r for _, r in b["rows"]))
     say(f"[INFO] {names[0]}: {a['model']}, {n_reps[0]} reps | {names[1]}: {b['model']}, {n_reps[1]} reps | "
         f"{len(common)} items in both")
+    splits = collections.Counter(next(r.get("split", "?") for (x, _), r in a["rows"].items() if x == i) for i in common)
+    say(f"[INFO] splits evaluated: {', '.join(f'{k} {v}' for k, v in sorted(splits.items()))}"
+        + ("  (test is in this comparison: keep it for the final run, after tuning on dev)" if "test" in splits else ""))
     cats = [c for c in testset.CATEGORIES if any(r["category"] == c for (i, _), r in a["rows"].items() if i in common)]
     cols = [("pass rate", "pass_rate", ".2f"), ("answer acc.", "answer_accuracy", ".2f"),
             ("grounded", "groundedness", ".2f"), ("p50 s", "p50", ".2f"), ("p95 s", "p95", ".2f"),

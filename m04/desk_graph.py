@@ -201,7 +201,8 @@ def critique(state: DeskState, runtime: Runtime) -> dict:
     TRACE.append("critique")
     ev = state["evidence"]
     planned = [s["order_id"] for s in state["plan"] if s.get("order_id")]
-    known = [e["order_id"] for e in ev if e.get("order_id") and not e.get("error")]
+    # a reply may name an order the customer asked about to say it wasn't found; any other ID is invented
+    known = [e["order_id"] for e in ev if e.get("order_id") and (not e.get("error") or e["error"] == "no such order")]
     retrieved = [p["id"] for p in desk_steps.passages(ev)]
     feedback = critic.checks(state["draft"], planned, known, state["profile"])
     feedback += rag_checks(state["draft"], retrieved)
@@ -211,7 +212,9 @@ def critique(state: DeskState, runtime: Runtime) -> dict:
     if not feedback:
         cited = CITATION.findall(state["draft"])
         cites = f"{len(cited)} citation{'s' if len(cited) != 1 else ''}, all retrieved" if retrieved else "no passages"
-        log(f"[critique] PASS: order IDs answered, none invented, {cites}, grounded")
+        # "grounded" only when the grade ran: no grade means not verified, not verified-grounded
+        g = "grounded" if score is not None else "grounding unverified (grade unavailable)"
+        log(f"[critique] PASS: order IDs answered, none invented, {cites}, {g}")
         return {"feedback": []}
     for f in feedback:
         log(f"[critique] FAIL {f}")

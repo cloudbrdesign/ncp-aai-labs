@@ -5,6 +5,7 @@
 #   selftest    each module's offline self-test (Modules 3-8, 10, 11): the lab check runs end to end
 #               against a scripted stand-in for the model (MNN_FAKE_LLM=1), so no Ollama, GPU
 #               or API key is needed. It proves the plumbing and the APIs, not answer quality.
+#               m04 and m06 also run their regression tests (the SQL guard, the scoring rules).
 #   manifests   m07/k8s/*.yaml validated against the Kubernetes API schemas with kubeconform
 #   prometheus  m08's Prometheus config and alert rules checked with promtool (lesson 8.1)
 # A red cross on a commit means one of these failed; the log of the failed step says which check.
@@ -38,11 +39,11 @@ jobs:
           - module: m03
             run: M03_FAKE_LLM=1 python m03/check.py
           - module: m04
-            run: M04_FAKE_LLM=1 python m04/check.py
+            run: M04_FAKE_LLM=1 python m04/check.py && M04_FAKE_LLM=1 python m04/tests/test_sql_guard.py
           - module: m05
             run: M05_FAKE_LLM=1 python m05/check.py --aws
           - module: m06
-            run: M06_FAKE_LLM=1 python m06/check.py
+            run: M06_FAKE_LLM=1 python m06/check.py && M06_FAKE_LLM=1 python m06/tests/test_scoring.py
           - module: m07
             run: M07_FAKE_LLM=1 python m07/check.py
           - module: m08
