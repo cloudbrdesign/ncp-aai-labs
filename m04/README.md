@@ -180,7 +180,7 @@ keyword    ../20       ../10    ../10     ...
 hybrid     ../20       ../10    ../10     ...
 [INFO] dense misses: ...
 [INFO] HNSW vs FLAT (exact): HNSW found ...% of FLAT's top-3 chunks (... vs ... ms/query)
-[INFO] Milvus Lite builds FLAT whatever index you ask for; compare indexes on Milvus Standalone
+[INFO] Milvus reports the dense index as HNSW (describe_index); with 37 vectors there is little to approximate, so compare index speed and recall on a larger collection
 [INFO] hybrid: right chunk in the top 20 for ../20, in the top 3 for ../20
 ```
 
@@ -189,8 +189,9 @@ Keyword search needs the exact terms (E42, MST, VESA), dense search copes with e
 wording ("headphones", "hang the screen on the wall"), and hybrid mixes the two. On our
 run, all three modes found every exact code; on everyday wording keyword search missed two
 and hybrid one, so dense won 20/20 on this small set. HNSW finds the same chunks as FLAT
-here, and not only because 37 vectors leave nothing to approximate: the Milvus Lite docs
-say Lite supports only FLAT, whatever index you request. Your numbers depend on the embedding model; `--verbose` shows each
+here, mostly because 37 vectors leave little to approximate. (An earlier version of this
+README said Milvus Lite builds only FLAT whatever you request; with the pinned versions the
+collection reports an HNSW index, as `describe_index` shows and the lab check asserts.) Your numbers depend on the embedding model; `--verbose` shows each
 question's top chunk per mode.
 
 ## 4. Reranking (not run)
@@ -221,8 +222,15 @@ query itself never changes. A 3B model can't damage anything that way.
 ```
 
 `--free-sql` shows the other way: the model writes the SELECT from the table schema, a
-validator allows one SELECT on the two known tables with a LIMIT, and the connection is
-opened read-only (`file:...?mode=ro`). Then a planted `DELETE` meets both guards:
+validator allows one SELECT on the two known tables, and the connection is opened read-only
+(`file:...?mode=ro`). The table rule is enforced by SQLite, not by reading the SQL text:
+`Connection.set_authorizer` is called for every table and column the query would read while
+it compiles, and anything other than `orders` and `order_items` is denied. A regex can't do
+this: `SELECT * FROM "sqlite_master"` (a quoted name) or `FROM orders, sqlite_master` (a comma
+join) got past the regex this lab first used. The row cap is structural too: the query runs
+as `SELECT * FROM (<query>) LIMIT 20`, so a `LIMIT` in a comment or with an offset can't lift
+it. `python m04/tests/test_sql_guard.py` runs the legitimate queries and the bypass attempts.
+Then a planted `DELETE` meets both guards:
 
 ```
 [INFO] planted query: DELETE FROM orders WHERE order_id = 'A1001'
@@ -231,6 +239,12 @@ opened read-only (`file:...?mode=ro`). Then a planted `DELETE` meets both guards
 [guard] BLOCKED by SQLite: attempt to write a readonly database
 [INFO] order A1001 is still there
 ```
+
+**Knowing an order ID is not permission to read it.** The named queries answer for any ID
+a customer types, so anyone who guesses `A1004` sees that order. That's acceptable only in a
+lab: Module 9 adds the caller's identity and scopes every query to the caller's own orders.
+And an ID that isn't in the database gets a question back ("Could you check the order
+number?"), not a search of every manual as if the order existed.
 
 ## 6. The desk: SQL, RAG or both
 

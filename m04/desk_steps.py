@@ -59,6 +59,11 @@ def manual_search(step: dict, request: str, log=print) -> dict:
     if oid:
         from_sql = orders_sql.order_product(oid)
         log(f"[sql]   order_product({oid}) -> {from_sql}")
+        if not from_sql and not product:
+            # an order ID that isn't in the database: ask, rather than search every manual
+            log(f"[sql]   no order {oid}: asking the customer to check the order number")
+            return {"order_id": oid, "product": "", "passages": [], "error": "no such order",
+                    "ask": f"Order {oid} isn't in our system. Could you check the order number, or tell us the product?"}
         product = from_sql or product
     hits = retrieve.search(milvus(), request, "hybrid", TOP_K, product=product or None)
     log(f"[rag]   hybrid search, filter {retrieve.product_filter(product) or 'none'}")
@@ -93,6 +98,8 @@ def run_step(step: dict, request: str, log=print) -> dict:
 def sentence(ev: dict) -> str:
     """One plain sentence per fact (manual passages are listed separately)."""
     if ev["action"] == "manual_search":
+        if ev.get("ask"):
+            return ev["ask"]
         if ev.get("order_id") and ev.get("item"):
             return f"Order {ev['order_id']} is a {ev['item']} ({ev['product']})."
         return ""
@@ -113,7 +120,7 @@ def template_reply(evidence: list[dict], profile: dict) -> str:
     """The deterministic reply: order facts, plus the top passage of each manual search, cited."""
     parts = [s for s in (sentence(ev) for ev in evidence) if s]
     for ev in evidence:
-        if ev["action"] == "manual_search":
+        if ev["action"] == "manual_search" and not ev.get("ask"):
             if ev["passages"]:
                 p = ev["passages"][0]
                 first = " ".join(re.split(r"(?<=[.!?])\s+", p["text"])[:2])

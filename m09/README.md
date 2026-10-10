@@ -107,6 +107,13 @@ Then the fix that is not a rail: identity scope. The caller's name (`--customer`
 header over HTTP) scopes every database connection: TEMP views named `orders` and `order_items` hold only
 the caller's rows, so the named queries and the model's own SQL see nothing else.
 
+The views alone are not the boundary: a query can name `main.orders` directly, quoted or in a
+comma join, and read past them. M4's SQLite authorizer closes that: when a TEMP view shadows a
+table, the base table may be read only through the view, and any direct read of `main.orders`
+or `main.order_items` is denied while the query compiles. `python m04/tests/test_sql_guard.py`
+includes those bypass attempts. (Found in the October 2026 technical review; before the fix,
+`SELECT DISTINCT customer FROM "main"."orders"` listed every customer through the scoped desk.)
+
 ```bash
 python m09/guarded_desk.py --layer L0 --customer "Tom B." --input "Who placed order A1004?"
 python m09/guarded_desk.py --layer L4 --customer "Tom B." --input "Who placed order A1004?"
