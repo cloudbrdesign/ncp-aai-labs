@@ -48,3 +48,8 @@ Errors that remain are ours.
 - `python setup/aws_lab.py down` deletes everything a lab created. Run it as soon as
   you finish.
 - Prices change: check the AWS pricing page for `g6e.xlarge` before you start.
+
+## Licence
+
+Code is licensed under Apache-2.0; lab guides, data and other written and visual material under
+CC BY 4.0. Third-party material keeps its own terms. See [LICENSING.md](LICENSING.md) for what applies where.
